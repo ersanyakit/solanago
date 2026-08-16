@@ -1,0 +1,54 @@
+{
+  "cluster": "testnet",
+  "genesisHash": "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY",
+  "customGoProgramDeployed": true,
+  "programId": "5d1Stqjy52hK34xcmgLepXhDNnTFYTizXDXwNKLtmaoS",
+  "programDataAddress": "FJK6RizrKngGdveQ2o5XpA2DUjekJsCt6C7Y6sS8NdbL",
+  "upgradeAuthority": "6w9npJf66qnn5spkKeeXCRgZKDuiF4oEogwDVK3mxenx",
+  "lastDeploySlot": 429483960,
+  "deploySignature": "fcByZ2Gy7tQPYbNVc33ezb7EbqNjvThHQPFPXfGTv3TheWz2LVYucPvJyzrbAfbfvz48DsQANwze8e4rhdbdu59",
+  "source": "examples/gospl/testdata/program.go",
+  "artifact": {
+    "format": "strict ELF64 sBPFv3",
+    "length": 39112,
+    "textLength": 38568,
+    "sha256": "7c8cf1c24eac5ed76d82df7a672099c29205fbddda39d024d4a25b936dc69fc9",
+    "finalizedDumpMatchesBuild": true
+  },
+  "deploymentTransport": {
+    "initialBufferCreatedBy": "go-solana Go-only loader client",
+    "bufferAddress": "HdQNrsEawNXDuaWtNgtz88skhGFm9SfFYaFvLLGUTa5P",
+    "finalizedBy": "Agave 4.2.1 program deploy --buffer",
+    "note": "The official loader CLI resumed the same verified buffer after the original client hit the public Testnet RPC polling limit. The deployed ELF bytes match the Go compiler output byte-for-byte."
+  },
+  "customMint": {
+    "address": "CWcmtfL11BVgaaHkK32x7dFBoQoJuZCANrudPknWXzNN",
+    "tokenAccount": "5asKGeRekbHmRURVzTmqonjJzJc5mdJYv8cC47T33VB1",
+    "authorityAndOwner": "6w9npJf66qnn5spkKeeXCRgZKDuiF4oEogwDVK3mxenx",
+    "decimals": 6,
+    "supplyRaw": "100000000000",
+    "supplyUi": "100000",
+    "mintStateLength": 48,
+    "tokenAccountStateLength": 120,
+    "mintRentLamports": 1224960,
+    "tokenAccountRentLamports": 1726080,
+    "transactions": {
+      "initializeMint": "3errWoBsijHTat1ugRfMRgffSSHMovRDu5GQrnqHi3GtoRP7KobRrVeRevBXt5s6Bn111ZbRG3sBTMGfxYWH4sYY",
+      "initializeTokenAccount": "YKP2ghCgSXHL27yGnDAQcBAbPjN73XehSvszqETxcgnRAEjYk6Bcn1C7mWWh4TeVGp1wK16GZ362emCJKCgume4",
+      "mintTo": "5FUXFZF8X1VSvBZTgDay4WZjeguyu2Ekr7QE59kQvzg4reZJosQCDuFnRnYxr4UtW81bbGJNdsgEFdDK71x4cQ4M"
+    }
+  },
+  "verification": {
+    "rpcApiVersion": "4.2.0",
+    "finalizedSlot": 429485034,
+    "allRecordedTransactionsFinalizedWithoutError": true,
+    "canonicalStateDecoded": true
+  },
+  "compatibility": {
+    "classicSplToken": false,
+    "token2022": false,
+    "metaplexMetadata": false,
+    "walletTokenListExpected": false,
+    "note": "GOSPL is a custom token program and state format. It is visible as a deployed program and custom accounts, not as a standard wallet SPL token."
+  }
+}

@@ -1,0 +1,9 @@
+go run ./examples/token2022/cmd/token2022-init \
+    --keypair wallet-keypair.json \
+    --url devnet \
+    --allow-live \
+    --name IINNKK \
+    --symbol IINNKK \
+    --decimals 6 \
+    --amount-raw 1000000000 \
+    --atomic

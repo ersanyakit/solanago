@@ -1,0 +1,50 @@
+{
+  "artifactKind": "canonical-token-2022-mint",
+  "customGoProgramDeployed": false,
+  "cluster": "testnet",
+  "clusterGenesisHash": "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY",
+  "tokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  "mint": "7iYGbsx7X1i6Jsm3nBivyVQPKwRgn2qdvtaZdARaA5rE",
+  "associatedTokenAccount": "CkycveQc2PNkuzGJgTEbKZgreCndWgkQPYEjoL2ymhUr",
+  "owner": "6w9npJf66qnn5spkKeeXCRgZKDuiF4oEogwDVK3mxenx",
+  "mintAuthority": "6w9npJf66qnn5spkKeeXCRgZKDuiF4oEogwDVK3mxenx",
+  "metadataUpdateAuthority": "6w9npJf66qnn5spkKeeXCRgZKDuiF4oEogwDVK3mxenx",
+  "freezeAuthority": null,
+  "metadata": {
+    "name": "GOSPLToken",
+    "symbol": "GOSPL",
+    "uri": ""
+  },
+  "decimals": 6,
+  "supply": {
+    "raw": "100000000000",
+    "ui": "100000"
+  },
+  "mintAuthorityDisabled": false,
+  "transactions": {
+    "createMint": {
+      "signature": "45TQfy1WegR4TXXi3Zu9HKU3nBoMJKPTfbEU2ug5umH2BF7vPGSXWXgjZdWGds22sd74CZqDf8TCXFnQyTTUdveg",
+      "slot": 429460204,
+      "status": "finalized"
+    },
+    "initializeMetadata": {
+      "signature": "251mSxm9pLRHBEQCwWBmotVUzRGqkmtCqjQSsFBRXXKVTuv3hqZpH5vbHcZck1ep8dDeLSNDv2D31aUcvMRDZXxU",
+      "slot": 429460436,
+      "status": "finalized"
+    },
+    "createAssociatedTokenAccount": {
+      "signature": "5CbdRnH5tjuPL6tL7ApQndw3kiY2BKhVyuffpwB1P7NUZ1BG1uFU3APgCNAe8xKMoEDiuHaDGnT2s5F1GSYQ2yBd",
+      "slot": 429460599,
+      "status": "finalized"
+    },
+    "mintInitialSupply": {
+      "signature": "WxMpKb1as8ttJ5KpuLmUMxZSR3M1jZZZb5LvrqiWnPR2vw56rWCJ34A3Bba3nfFJBXuVayrk9yNZEJvjiRDz8vi",
+      "slot": 429460819,
+      "status": "finalized"
+    }
+  },
+  "lastVerified": {
+    "rpcCoreVersion": "4.2.0",
+    "slot": 429475985
+  }
+}

@@ -1,0 +1,9 @@
+program.sbpf
+program.so
+*.test
+coverage.out
+wallet.json
+wallet-keystore.json
+wallet-keypair.json
+wallet.txt
+*keypair*.json

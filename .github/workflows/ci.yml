@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go test -count=1 ./...
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+
+  fuzz-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go test ./compiler -run='^$' -fuzz=FuzzCompileUint64ConstantArithmetic -fuzztime=5s
+      - run: go test ./compiler -run='^$' -fuzz=FuzzCompiledAddMatchesGo -fuzztime=5s
+      - run: go test ./compiler -run='^$' -fuzz=FuzzCompiledUint32MatchesGo -fuzztime=5s
+      - run: go test ./compiler -run='^$' -fuzz=FuzzCompiledInt32DivisionRemainderMatchesGo -fuzztime=5s
+      - run: go test ./sbpf -run='^$' -fuzz=FuzzEncodeDecode -fuzztime=5s
+      - run: go test ./sbpf -run='^$' -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
+      - run: go test ./sbpf -run='^$' -fuzz=FuzzMilestone2EncodeDecode -fuzztime=5s
+      - run: go test ./elf -run='^$' -fuzz=FuzzParseStrictV3 -fuzztime=5s
+      - run: go test ./vm -run='^$' -fuzz=FuzzVMArithmetic -fuzztime=5s
+      - run: go test ./vm -run='^$' -fuzz=FuzzVMBranches -fuzztime=5s
+      - run: go test ./vm -run='^$' -fuzz=FuzzVMUint32Arithmetic -fuzztime=5s
+      - run: go test ./runtime -run='^$' -fuzz=FuzzAgaveABIV1Differential -fuzztime=5s
+      - run: go test ./runtime -run='^$' -fuzz=FuzzAgaveABIV1DirectMappingDifferential -fuzztime=5s
+      - run: go test ./runtime -run='^$' -fuzz=FuzzMemoryAndCTranslationNeverPanic -fuzztime=5s
+      - run: go test ./serialization -run='^$' -fuzz=FuzzDecoderNeverPanics -fuzztime=5s
+      - run: go test ./examples/gospl -run='^$' -fuzz=FuzzInstructionCodecIsCanonical -fuzztime=5s
+      - run: go test ./examples/hellogo -run='^$' -fuzz=FuzzInstructionCodecIsCanonical -fuzztime=5s
