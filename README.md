@@ -166,6 +166,19 @@ the official Token-2022 program; it is not the custom Go program and is not
 evidence that GOSPL was deployed. See [the native model and Token-2022
 boundary](examples/spl20/README.md).
 
+[`examples/erc1155`](examples/erc1155/README.md) is a second custom program
+alongside GOSPL: a multi-token contract providing ERC1155's capabilities
+(per-id balances, per-id supply/URI, approve-for-all) re-expressed as
+separate Solana accounts rather than a byte-for-byte port — two deliberate
+deviations (no batch instruction; Solana's transaction-level atomicity makes
+one unnecessary, and no receiver-hook callback) are documented there. It is
+built from two files compiled together via multi-file support and uses the
+account-field intrinsics instead of hand-computed account-record offsets.
+Its correctness oracle is the reference VM executing the compiled program
+against real serialized ABIv1 memory through a full instruction lifecycle,
+asserting exact account bytes at each step — it does not have GOSPL's
+separate native-model cross-check or opt-in official-Agave gate.
+
 ## Verification
 
 The normal, dependency-free gates are:
