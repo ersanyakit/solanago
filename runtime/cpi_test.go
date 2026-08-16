@@ -7,8 +7,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 type cpiExecutorFunc func(CPIRequest) error

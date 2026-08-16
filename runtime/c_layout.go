@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // Exact LP64 C/Rust-stable layouts consumed by current Agave CPI translation.

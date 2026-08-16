@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 const (

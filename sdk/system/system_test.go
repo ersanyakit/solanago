@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // Golden bytes and account order come from the official Codama-generated

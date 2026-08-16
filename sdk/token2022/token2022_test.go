@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ersany/go-solana/sdk"
-	classic "github.com/ersany/go-solana/sdk/token"
+	"github.com/ersanyakit/go-solana/sdk"
+	classic "github.com/ersanyakit/go-solana/sdk/token"
 )
 
 func TestProgramsRemainDistinct(t *testing.T) {

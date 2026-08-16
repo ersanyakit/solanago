@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // serializeInputV1DirectMapping reproduces Agave's

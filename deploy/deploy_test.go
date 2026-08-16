@@ -14,11 +14,11 @@ import (
 	"strings"
 	"testing"
 
-	sbpfelf "github.com/ersany/go-solana/elf"
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/loader"
-	"github.com/ersany/go-solana/svmtest"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/loader"
+	"github.com/ersanyakit/go-solana/svmtest"
 )
 
 func TestKeypairRoundTripAndNoOverwrite(t *testing.T) {

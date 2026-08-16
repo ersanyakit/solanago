@@ -9,7 +9,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // This byte fixture is independently assembled from the field sequence in:

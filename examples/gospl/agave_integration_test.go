@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ersany/go-solana/compiler"
-	"github.com/ersany/go-solana/deploy"
-	sbpfelf "github.com/ersany/go-solana/elf"
-	"github.com/ersany/go-solana/examples/gospl"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/loader"
-	"github.com/ersany/go-solana/sdk/system"
-	"github.com/ersany/go-solana/svmtest"
+	"github.com/ersanyakit/go-solana/compiler"
+	"github.com/ersanyakit/go-solana/deploy"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
+	"github.com/ersanyakit/go-solana/examples/gospl"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/loader"
+	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/go-solana/svmtest"
 )
 
 // TestAgaveGOSPLFullStateMachine is the real-runtime acceptance gate for the

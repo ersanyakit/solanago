@@ -3,7 +3,7 @@ package system
 import (
 	"encoding/binary"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 const NonceStateSize = 80

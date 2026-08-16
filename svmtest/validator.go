@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	sbpfelf "github.com/ersany/go-solana/elf"
-	"github.com/ersany/go-solana/sdk"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // LocalValidatorConfig selects an official Agave binary distribution and,

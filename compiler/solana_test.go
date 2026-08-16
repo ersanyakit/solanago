@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/vm"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/vm"
 )
 
 func TestGenerateSolanaEntrypointForwardsAgaveRegisters(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/system"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/system"
 )
 
 func TestAgaveV7GoldenInstructionData(t *testing.T) {

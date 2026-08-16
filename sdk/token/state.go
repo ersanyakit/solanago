@@ -3,7 +3,7 @@ package token
 import (
 	"encoding/binary"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 type Mint struct {

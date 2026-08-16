@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 func TestBuildLegacyTransactionOrdersAndSigns(t *testing.T) {

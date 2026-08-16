@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ersany/go-solana/examples/spl20"
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/examples/spl20"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 func TestWireCodecMatchesIndependentNativeReference(t *testing.T) {

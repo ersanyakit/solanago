@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ersany/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sbpf"
 )
 
 func TestMemoryMapTranslationAndPermissions(t *testing.T) {

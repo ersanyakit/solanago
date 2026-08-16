@@ -3,7 +3,7 @@ package gospl
 import (
 	"encoding/binary"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // DecodeInstruction verifies exact lengths and canonical optional-authority

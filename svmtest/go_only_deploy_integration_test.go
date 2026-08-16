@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ersany/go-solana/deploy"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/svmtest"
+	"github.com/ersanyakit/go-solana/deploy"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/svmtest"
 )
 
 // TestAgaveGoOnlyDeployAndInvoke proves the production-facing path that this

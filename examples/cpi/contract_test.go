@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/ersany/go-solana/compiler"
-	sbpfelf "github.com/ersany/go-solana/elf"
-	"github.com/ersany/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/compiler"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
+	"github.com/ersanyakit/go-solana/sbpf"
 )
 
 func TestGoCPIContractCompilesToStrictELFWithStaticSyscall(t *testing.T) {

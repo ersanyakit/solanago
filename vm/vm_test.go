@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ersany/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sbpf"
 )
 
 func run(t *testing.T, program []sbpf.Instruction, args ...uint64) uint64 {

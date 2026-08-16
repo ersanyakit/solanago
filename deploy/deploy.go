@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"os"
 
-	sbpfelf "github.com/ersany/go-solana/elf"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/loader"
-	"github.com/ersany/go-solana/svmtest"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/loader"
+	"github.com/ersanyakit/go-solana/svmtest"
 )
 
 const DefaultChunkSize = 800

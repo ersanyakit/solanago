@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/ersany/go-solana/compiler"
-	sbpfelf "github.com/ersany/go-solana/elf"
+	"github.com/ersanyakit/go-solana/compiler"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
 )
 
 // TestContextExampleCompilesAcrossTwoFilesWithAccountIntrinsics exercises all

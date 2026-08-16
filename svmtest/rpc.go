@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 // RPCError is a JSON-RPC error returned by Agave.

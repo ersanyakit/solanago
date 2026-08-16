@@ -19,11 +19,11 @@ import (
 	"strings"
 	"time"
 
-	gosoldeploy "github.com/ersany/go-solana/deploy"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/system"
-	"github.com/ersany/go-solana/sdk/token2022"
-	"github.com/ersany/go-solana/svmtest"
+	gosoldeploy "github.com/ersanyakit/go-solana/deploy"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/go-solana/sdk/token2022"
+	"github.com/ersanyakit/go-solana/svmtest"
 )
 
 const minimumFeeReserveLamports = uint64(100_000)

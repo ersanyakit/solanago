@@ -16,13 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ersany/go-solana/compiler"
-	gosoldeploy "github.com/ersany/go-solana/deploy"
-	sbpfelf "github.com/ersany/go-solana/elf"
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/svmtest"
-	"github.com/ersany/go-solana/vm"
+	"github.com/ersanyakit/go-solana/compiler"
+	gosoldeploy "github.com/ersanyakit/go-solana/deploy"
+	sbpfelf "github.com/ersanyakit/go-solana/elf"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/svmtest"
+	"github.com/ersanyakit/go-solana/vm"
 )
 
 func main() {

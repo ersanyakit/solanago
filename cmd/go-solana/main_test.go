@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ersany/go-solana/compiler"
-	gosoldeploy "github.com/ersany/go-solana/deploy"
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/compiler"
+	gosoldeploy "github.com/ersanyakit/go-solana/deploy"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 func TestRunAddExample(t *testing.T) {

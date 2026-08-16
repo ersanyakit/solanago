@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/associatedtoken"
-	"github.com/ersany/go-solana/sdk/metaplex"
-	"github.com/ersany/go-solana/sdk/system"
-	"github.com/ersany/go-solana/sdk/token2022"
-	"github.com/ersany/go-solana/svmtest"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/associatedtoken"
+	"github.com/ersanyakit/go-solana/sdk/metaplex"
+	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/go-solana/sdk/token2022"
+	"github.com/ersanyakit/go-solana/svmtest"
 )
 
 func TestParseAndFormatUIAmount(t *testing.T) {

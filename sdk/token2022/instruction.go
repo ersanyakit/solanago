@@ -5,9 +5,9 @@ import (
 	"errors"
 	"math"
 
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/sdk/system"
-	classic "github.com/ersany/go-solana/sdk/token"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk/system"
+	classic "github.com/ersanyakit/go-solana/sdk/token"
 )
 
 type AuthorityType uint8

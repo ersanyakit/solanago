@@ -5,7 +5,7 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"github.com/ersany/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/sdk"
 )
 
 func CreateAccount(payer, newAccount sdk.Pubkey, lamports, space uint64, owner sdk.Pubkey) sdk.Instruction {

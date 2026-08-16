@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/vm"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/vm"
 )
 
 func compileExecutable(t *testing.T, source, entry string) *Executable {

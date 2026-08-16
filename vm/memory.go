@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/ersany/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sbpf"
 )
 
 var (

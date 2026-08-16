@@ -6,12 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ersany/go-solana/compiler"
-	"github.com/ersany/go-solana/examples/spl20"
-	"github.com/ersany/go-solana/runtime"
-	"github.com/ersany/go-solana/sbpf"
-	"github.com/ersany/go-solana/sdk"
-	"github.com/ersany/go-solana/vm"
+	"github.com/ersanyakit/go-solana/compiler"
+	"github.com/ersanyakit/go-solana/examples/spl20"
+	"github.com/ersanyakit/go-solana/runtime"
+	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/go-solana/vm"
 )
 
 type pairedAccount struct {
