@@ -241,6 +241,9 @@ go run ./examples/token2022/cmd/token2022-init \
 This creates a real Token-2022 mint and token account and mints `100000` UI units.
 `token2022-init` currently uses base Token-2022 mint/account instructions only;
 metadata (name/symbol/URI) extension setup is not yet implemented in this flow.
+For a genuine, wallet-visible NFT (decimals 0, supply capped at 1, a real
+Metaplex Master Edition) rather than a fungible mint, use
+[`token2022-nft-init`](examples/token2022/cmd/token2022-nft-init) instead.
 
 The `deploy` command is intentionally guarded. It validates strict ELF, refuses
 non-loopback RPC endpoints unless `--allow-live` is explicit, and only creates

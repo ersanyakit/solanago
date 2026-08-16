@@ -64,6 +64,14 @@ func DeriveMetadataAddress(mint sdk.Pubkey) (sdk.Pubkey, uint8, error) {
 	return sdk.FindProgramAddress([][]byte{[]byte("metadata"), ProgramID[:], mint[:]}, ProgramID)
 }
 
+// DeriveMasterEditionAddress computes the PDA mpl-token-metadata uses for a
+// mint's Master Edition account — the account that, together with the
+// Metadata account, marks a mint as a real, wallet-visible NonFungible
+// token and permanently caps its supply. See CreateNFTV1.
+func DeriveMasterEditionAddress(mint sdk.Pubkey) (sdk.Pubkey, uint8, error) {
+	return sdk.FindProgramAddress([][]byte{[]byte("metadata"), ProgramID[:], mint[:], []byte("edition")}, ProgramID)
+}
+
 // CreateV1 builds a Create instruction for a fungible token (no master
 // edition, no creators/collection/uses/rule set) on an already-initialized
 // mint. tokenProgramID must be the program that owns mint (Token or
@@ -126,6 +134,83 @@ func CreateV1(
 		Data: data,
 	}
 	return instruction, metadataAddress, nil
+}
+
+// CreateNFTV1 builds a Create instruction for a genuine, wallet-visible
+// NonFungible token: a Metadata account plus a Master Edition account,
+// created together in one instruction. tokenProgramID must be the program
+// that owns mint (Token or Token-2022).
+//
+// Two on-chain preconditions, taken from mpl-token-metadata's own
+// processor (programs/token-metadata/program/src/processor/edition/
+// create_master_edition_v3.rs: "if mint.supply != 1 {
+// EditionsMustHaveExactlyOneToken }"), are the caller's responsibility and
+// are not checked client-side here:
+//
+//  1. mint must already have decimals == 0 and exactly one token minted to
+//     some token account (via a prior MintTo) before this instruction is
+//     submitted — Create does not mint tokens itself.
+//  2. mintAuthority must still be the mint's current mint authority when
+//     this instruction runs. This instruction transfers mint authority to
+//     the derived Master Edition PDA as a side effect of creating it,
+//     permanently capping supply at 1 — no separate "disable mint
+//     authority" call is needed, or possible, afterward.
+func CreateNFTV1(
+	mint, mintAuthority, payer, updateAuthority, tokenProgramID sdk.Pubkey,
+	updateAuthoritySigner bool,
+	name, symbol, uri string,
+	isMutable bool,
+) (sdk.Instruction, sdk.Pubkey, sdk.Pubkey, error) {
+	metadataAddress, _, err := DeriveMetadataAddress(mint)
+	if err != nil {
+		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
+	}
+	masterEditionAddress, _, err := DeriveMasterEditionAddress(mint)
+	if err != nil {
+		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
+	}
+
+	data := []byte{createDiscriminator, 0} // CreateArgs::V1 tag
+	data, err = appendBorshString(data, name)
+	if err != nil {
+		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
+	}
+	data, err = appendBorshString(data, symbol)
+	if err != nil {
+		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
+	}
+	data, err = appendBorshString(data, uri)
+	if err != nil {
+		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
+	}
+	data = binary.LittleEndian.AppendUint16(data, 0) // seller_fee_basis_points
+	data = append(data, 0)                           // creators: None
+	data = append(data, 0)                           // primary_sale_happened: false
+	data = append(data, boolByte(isMutable))         // is_mutable
+	data = append(data, 0)                           // token_standard: NonFungible
+	data = append(data, 0)                           // collection: None
+	data = append(data, 0)                           // uses: None
+	data = append(data, 0)                           // collection_details: None
+	data = append(data, 0)                           // rule_set: None
+	data = append(data, 1, 0)                        // decimals: Some(0)
+	data = append(data, 1, 0)                        // print_supply: Some(PrintSupply::Zero)
+
+	instruction := sdk.Instruction{
+		ProgramID: ProgramID,
+		Accounts: []sdk.AccountMeta{
+			sdk.Writable(metadataAddress, false),
+			sdk.Writable(masterEditionAddress, false),
+			sdk.Writable(mint, false), // mint already exists; no signature needed here
+			sdk.Readonly(mintAuthority, true),
+			sdk.Writable(payer, true),
+			sdk.Readonly(updateAuthority, updateAuthoritySigner),
+			sdk.Readonly(system.ProgramID, false),
+			sdk.Readonly(SysvarInstructionsID, false),
+			sdk.Readonly(tokenProgramID, false), // spl_token_program: Some(tokenProgramID)
+		},
+		Data: data,
+	}
+	return instruction, metadataAddress, masterEditionAddress, nil
 }
 
 // tokenStandardByte follows the same convention spl-token CLIs use: a

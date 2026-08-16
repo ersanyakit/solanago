@@ -132,12 +132,42 @@ value in `program.go`'s comments), and `Encode*`/`Decode*` wire codecs plus
 go test ./examples/erc1155/...
 ```
 
+## CLI client and Devnet deployment
+
+[`cmd/erc1155-init`](cmd/erc1155-init) mirrors `examples/gospl/cmd/gospl-init`:
+it creates a collection, defines one token type, initializes a balance, and
+mints a raw amount, verifying finalized on-chain state byte-for-byte after
+each stage. The program has been deployed and exercised live on Devnet.
+
+## Wallet-visible items (real Token-2022 NFTs)
+
+The account this program creates (`Balance`, `TokenType`, `Collection`) will
+**never** show up as an NFT in a wallet or in Solana Explorer, no matter what
+changes are made to this program: wallets and Explorer only render an
+account as an NFT when it's a real SPL Token/Token-2022 mint carrying a
+Metaplex Metadata account *and* a Metaplex Master Edition account — a custom
+program's own account layout, however it's shaped, is invisible to that
+standard.
+
+For the `amount == 1` case — a true, unique item — the honest equivalent is
+[`examples/token2022/cmd/token2022-nft-init`](../token2022/cmd/token2022-nft-init):
+a separate tool that mints a real Token-2022 NFT (`metaplex.CreateNFTV1`,
+`sdk/metaplex`) with decimals 0 and supply permanently capped at 1, which
+does render in a wallet's Collectibles/NFT view. An `amount > 1` item has no
+wallet-visible equivalent on Solana at all — a Master Edition's supply is
+capped at exactly 1 by the mpl-token-metadata program itself
+(`EditionsMustHaveExactlyOneToken`), so a multi-copy ERC1155 item stays a
+semi-fungible token (`examples/token2022/cmd/token2022-init`'s
+`FungibleAsset` metadata, not this package) and always shows in a wallet's
+fungible token list, never its Collectibles tab. This is a property of
+Solana's NFT standard, not a limitation of this program.
+
 ## Not included in this pass
 
-- No dedicated CLI client (compare `examples/gospl/cmd/gospl-init`) — proven
-  via the Go test suite here; a CLI would follow that example's template.
-- No devnet/testnet deployment — `go-solana deploy` works on the built
-  `.so` exactly as it does for any other example, if wanted.
 - No opt-in official-Agave acceptance test (compare `examples/gospl`'s
   `GOSBF_AGAVE_BIN`-gated test) — a heavier, separate gate requiring a local
   Agave binary.
+- No verified Metaplex collection linking multiple `token2022-nft-init`
+  items together (an unverified `collection` field could be added cheaply,
+  but wallets generally only group items under a *verified* collection, and
+  this repo has no `VerifyCollectionV1` builder yet) — left as future work.
