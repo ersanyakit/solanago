@@ -15,28 +15,30 @@ func Lower(checked *CheckedPackage) (*Program, error) {
 		return nil, fmt.Errorf("lower: nil or incomplete checked package")
 	}
 	program := &Program{Package: checked.Package.Name()}
-	for _, declaration := range checked.Parsed.AST.Decls {
-		functionDeclaration, ok := declaration.(*ast.FuncDecl)
-		if !ok {
-			return nil, lowerDiagnostic(checked, declaration, "unexpected non-function declaration")
+	for _, file := range checked.Parsed.Files {
+		for _, declaration := range file.Decls {
+			functionDeclaration, ok := declaration.(*ast.FuncDecl)
+			if !ok {
+				return nil, lowerDiagnostic(checked, declaration, "unexpected non-function declaration")
+			}
+			if functionDeclaration.Body == nil {
+				continue // validated explicit guest-memory or Solana syscall declaration
+			}
+			lowerer := &functionLowerer{
+				checked:         checked,
+				variables:       make(map[*types.Var]ValueID),
+				memoryVariables: make(map[*types.Var]MemoryObjectID),
+				addressTaken:    findAddressTakenVariables(checked, functionDeclaration),
+			}
+			function, err := lowerer.lowerFunction(functionDeclaration)
+			if err != nil {
+				return nil, err
+			}
+			program.Functions = append(program.Functions, function)
 		}
-		if functionDeclaration.Body == nil {
-			continue // validated explicit guest-memory or Solana syscall declaration
-		}
-		lowerer := &functionLowerer{
-			checked:         checked,
-			variables:       make(map[*types.Var]ValueID),
-			memoryVariables: make(map[*types.Var]MemoryObjectID),
-			addressTaken:    findAddressTakenVariables(checked, functionDeclaration),
-		}
-		function, err := lowerer.lowerFunction(functionDeclaration)
-		if err != nil {
-			return nil, err
-		}
-		program.Functions = append(program.Functions, function)
 	}
 	if len(program.Functions) == 0 {
-		return nil, lowerDiagnostic(checked, checked.Parsed.AST, "source file declares no functions")
+		return nil, lowerDiagnostic(checked, checked.Parsed.Files[0], "source file declares no functions")
 	}
 	if err := program.Validate(); err != nil {
 		return nil, fmt.Errorf("lower: generated invalid IR: %w", err)
@@ -643,6 +645,9 @@ func (l *functionLowerer) lowerCall(call *ast.CallExpr) (ValueID, error) {
 		if intrinsic, ok := l.checked.Syscalls[object]; ok {
 			return l.lowerSyscallIntrinsic(call, intrinsic)
 		}
+		if intrinsic, ok := l.checked.AccountField[object]; ok {
+			return l.lowerAccountFieldIntrinsic(call, intrinsic)
+		}
 		if object.Pkg() != l.checked.Package {
 			return NoValue, l.errorAt(identifier, "external function calls are not supported")
 		}
@@ -745,6 +750,31 @@ func (l *functionLowerer) lowerMemoryIntrinsic(call *ast.CallExpr, intrinsic mem
 		l.emit(Instruction{Op: OpStore, Dest: NoValue, X: address, Y: value,
 			Memory: intrinsic.Memory, Pos: l.position(call.Pos())})
 		return NoValue, nil
+	}
+	destination := l.newTemporary(intrinsic.Memory.ValueType())
+	l.emit(Instruction{Op: OpLoad, Dest: destination, X: address,
+		Memory: intrinsic.Memory, Pos: l.position(call.Pos())})
+	return destination, nil
+}
+
+// lowerAccountFieldIntrinsic emits record+Offset (const+add), then either
+// returns that address directly or loads intrinsic.Memory from it — exactly
+// the instruction shape a hand-written LoadX(record+uint64(N)) expression
+// already produces, just without repeating the offset at every call site.
+func (l *functionLowerer) lowerAccountFieldIntrinsic(call *ast.CallExpr, intrinsic accountFieldIntrinsic) (ValueID, error) {
+	if len(call.Args) != 1 {
+		return NoValue, l.errorAt(call, "account-field intrinsic requires 1 argument")
+	}
+	record, err := l.lowerExpression(call.Args[0], TypeUint64)
+	if err != nil {
+		return NoValue, err
+	}
+	offset := l.newTemporary(TypeUint64)
+	l.emit(Instruction{Op: OpConst, Dest: offset, Imm: intrinsic.Offset, Pos: l.position(call.Pos())})
+	address := l.newTemporary(TypeUint64)
+	l.emit(Instruction{Op: OpAdd, Dest: address, X: record, Y: offset, Pos: l.position(call.Pos())})
+	if intrinsic.Address {
+		return address, nil
 	}
 	destination := l.newTemporary(intrinsic.Memory.ValueType())
 	l.emit(Instruction{Op: OpLoad, Dest: destination, X: address,

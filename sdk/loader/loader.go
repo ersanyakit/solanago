@@ -6,6 +6,7 @@ package loader
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/ersany/go-solana/sdk"
@@ -63,6 +64,62 @@ func Write(buffer, authority sdk.Pubkey, offset uint32, bytes []byte) sdk.Instru
 		},
 		Data: data,
 	}
+}
+
+// Upgrade returns the loader Upgrade instruction, replacing a live program's
+// code with the contents of an already-written, finalized buffer. Unlike
+// DeployWithMaxDataLen, the program account does not sign: only the upgrade
+// authority does. Excess buffer lamports are swept to spill.
+func Upgrade(program, buffer, authority, spill sdk.Pubkey) (sdk.Instruction, error) {
+	programData, err := ProgramDataAddress(program)
+	if err != nil {
+		return sdk.Instruction{}, err
+	}
+	data := make([]byte, 4)
+	binary.LittleEndian.PutUint32(data, 3)
+	return sdk.Instruction{
+		ProgramID: ProgramID,
+		Accounts: []sdk.AccountMeta{
+			sdk.Writable(programData, false),
+			sdk.Writable(program, false),
+			sdk.Writable(buffer, false),
+			sdk.Writable(spill, false),
+			sdk.Readonly(system.RentSysvar, false),
+			sdk.Readonly(ClockSysvar, false),
+			sdk.Readonly(authority, true),
+		},
+		Data: data,
+	}, nil
+}
+
+// ProgramDataState is the decoded shape of a finalized ProgramData account.
+type ProgramDataState struct {
+	Slot         uint64
+	HasAuthority bool
+	Authority    sdk.Pubkey
+	// ProgramBytes is the trailing program-code region. Its length equals the
+	// MaxDataLen the account was allocated with at first deploy; it does not
+	// shrink to the size of whichever ELF is currently stored there.
+	ProgramBytes []byte
+}
+
+// DecodeProgramDataAccount decodes a finalized ProgramData account's raw
+// bytes. It returns an error if the state tag is not the ProgramData variant
+// (3) or the account is shorter than the fixed metadata prefix.
+func DecodeProgramDataAccount(data []byte) (ProgramDataState, error) {
+	if len(data) < ProgramDataMetadataSize {
+		return ProgramDataState{}, fmt.Errorf("loader: ProgramData account is truncated: have %d bytes, need at least %d", len(data), ProgramDataMetadataSize)
+	}
+	if binary.LittleEndian.Uint32(data[:4]) != 3 {
+		return ProgramDataState{}, errors.New("loader: account is not in ProgramData state")
+	}
+	state := ProgramDataState{
+		Slot:         binary.LittleEndian.Uint64(data[4:12]),
+		HasAuthority: data[12] == 1,
+	}
+	copy(state.Authority[:], data[13:ProgramDataMetadataSize])
+	state.ProgramBytes = data[ProgramDataMetadataSize:]
+	return state, nil
 }
 
 // DeployWithMaxDataLen returns the atomic Program account creation and loader

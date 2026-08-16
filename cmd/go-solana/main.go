@@ -56,6 +56,8 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 		return testCommand(arguments[1:], stdout, stderr)
 	case "deploy":
 		return deployCommand(arguments[1:], stdout, stderr)
+	case "upgrade":
+		return upgradeCommand(arguments[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		printUsage(stdout)
 		return nil
@@ -68,14 +70,15 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "usage:")
 	fmt.Fprintln(output, "  go-solana init directory")
-	fmt.Fprintln(output, "  go-solana build [-target scalar|solana] [-format auto|raw|elf] [-o output] [-func Function] source.go")
+	fmt.Fprintln(output, "  go-solana build [-target scalar|solana] [-format auto|raw|elf] [-o output] [-func Function] source.go [more.go ...]")
 	fmt.Fprintln(output, "  go-solana keygen -o keypair.json")
 	fmt.Fprintln(output, "  go-solana airdrop --keypair payer.json --url devnet --allow-live [--lamports 1000000000]")
 	fmt.Fprintln(output, "  go-solana disassemble program.sbpf|program.so")
 	fmt.Fprintln(output, "  go-solana verify program.so")
-	fmt.Fprintln(output, "  go-solana run [-func Function] [-args 10,20] source.go [arguments ...]")
+	fmt.Fprintln(output, "  go-solana run [-func Function] [-args 10,20] [-files more.go,helpers.go] source.go [arguments ...]")
 	fmt.Fprintln(output, "  go-solana test [directory]")
 	fmt.Fprintln(output, "  go-solana deploy --program-id program-keypair.json --keypair payer.json [--buffer BUFFER_ADDRESS] [--url localhost] program.so")
+	fmt.Fprintln(output, "  go-solana upgrade --program PROGRAM_ADDRESS --authority authority.json --keypair payer.json [--spill SPILL_ADDRESS] [--url localhost] program.so")
 }
 
 func buildCommand(arguments []string, stdout, stderr io.Writer) error {
@@ -88,10 +91,10 @@ func buildCommand(arguments []string, stdout, stderr io.Writer) error {
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
-	if flags.NArg() != 1 {
-		return errors.New("build expects exactly one Go source file")
+	if flags.NArg() < 1 {
+		return errors.New("build expects at least one Go source file")
 	}
-	program, err := compiler.CompileFile(flags.Arg(0))
+	program, err := compiler.CompileFiles(flags.Args())
 	if err != nil {
 		return err
 	}
@@ -254,6 +257,7 @@ func runCommand(arguments []string, stdout, stderr io.Writer) error {
 	flags.SetOutput(stderr)
 	entryFlag := flags.String("func", "", "entry function")
 	argumentList := flags.String("args", "", "comma-separated scalar arguments")
+	filesFlag := flags.String("files", "", "comma-separated additional same-package Go source files")
 	maxInstructions := flags.Int("max-instructions", vm.DefaultMaxInstructions, "execution instruction limit")
 	if err := flags.Parse(arguments); err != nil {
 		return err
@@ -261,7 +265,11 @@ func runCommand(arguments []string, stdout, stderr io.Writer) error {
 	if flags.NArg() < 1 {
 		return errors.New("run expects a Go source file")
 	}
-	program, err := compiler.CompileFile(flags.Arg(0))
+	sourceFiles := []string{flags.Arg(0)}
+	if *filesFlag != "" {
+		sourceFiles = append(sourceFiles, strings.Split(*filesFlag, ",")...)
+	}
+	program, err := compiler.CompileFiles(sourceFiles)
 	if err != nil {
 		return err
 	}
@@ -562,6 +570,94 @@ func deployCommand(arguments []string, stdout, stderr io.Writer) error {
 		if hasPartialDeployJournal(result) {
 			encoded, _ := json.Marshal(result)
 			fmt.Fprintf(stderr, "partial deploy journal: %s\n", encoded)
+		}
+		return err
+	}
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(stdout, string(encoded))
+	return nil
+}
+
+func upgradeCommand(arguments []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("upgrade", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	programFlag := flags.String("program", "", "existing program address (required)")
+	authorityFlag := flags.String("authority", "", "upgrade authority keypair path (required)")
+	spillFlag := flags.String("spill", "", "address to receive excess buffer lamports (default the fee payer)")
+	rpcURL := flags.String("url", "localhost", "Solana RPC URL or localhost/devnet/testnet/mainnet-beta")
+	keypair := flags.String("keypair", "", "fee payer keypair path (required)")
+	allowLive := flags.Bool("allow-live", false, "explicitly permit a non-loopback RPC endpoint")
+	dryRun := flags.Bool("dry-run", false, "validate and print the command without upgrading")
+	chunkSize := flags.Int("chunk-size", gosoldeploy.DefaultChunkSize, "loader buffer write size")
+	timeout := flags.Duration("timeout", 20*time.Minute, "whole upgrade deadline")
+	if err := flags.Parse(arguments); err != nil {
+		return err
+	}
+	if flags.NArg() != 1 || *programFlag == "" || *authorityFlag == "" || *keypair == "" {
+		return errors.New("upgrade expects one program.so, --program PROGRAM_ADDRESS, --authority authority.json, and --keypair payer.json")
+	}
+	data, err := os.ReadFile(flags.Arg(0))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", flags.Arg(0), err)
+	}
+	if _, err := sbpfelf.ParseStrictV3(data); err != nil {
+		return fmt.Errorf("refusing to upgrade to an invalid artifact: %w", err)
+	}
+	resolvedURL, err := normalizeRPCURL(*rpcURL)
+	if err != nil {
+		return err
+	}
+	if !*allowLive && !loopbackRPC(resolvedURL) {
+		return fmt.Errorf("refusing non-loopback RPC %q without --allow-live", *rpcURL)
+	}
+	program, err := sdk.ParsePubkey(*programFlag)
+	if err != nil {
+		return fmt.Errorf("invalid --program address: %w", err)
+	}
+	authority, err := gosoldeploy.LoadKeypair(*authorityFlag)
+	if err != nil {
+		return fmt.Errorf("load authority keypair: %w", err)
+	}
+	payer, err := gosoldeploy.LoadKeypair(*keypair)
+	if err != nil {
+		return fmt.Errorf("load payer keypair: %w", err)
+	}
+	var spill sdk.Pubkey
+	if *spillFlag != "" {
+		spill, err = sdk.ParsePubkey(*spillFlag)
+		if err != nil {
+			return fmt.Errorf("invalid --spill address: %w", err)
+		}
+	}
+	if *dryRun {
+		fmt.Fprintf(stdout, "validated Go-only upgrade: program=%s authority=%s payer=%s rpc=%s elf=%d chunk=%d\n",
+			program, authority.PublicKey, payer.PublicKey, resolvedURL, len(data), *chunkSize)
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+	config := gosoldeploy.Config{
+		Client:           svmtest.Client{URL: resolvedURL},
+		FeePayer:         payer,
+		UpgradeAuthority: authority,
+		SpillAddress:     spill,
+		ChunkSize:        *chunkSize,
+		Progress: func(stage gosoldeploy.Stage) {
+			if stage.Kind == "write" {
+				fmt.Fprintf(stderr, "finalized write offset=%d length=%d signature=%s\n", stage.Offset, stage.Length, stage.Signature)
+			} else {
+				fmt.Fprintf(stderr, "finalized %s signature=%s\n", stage.Kind, stage.Signature)
+			}
+		},
+	}
+	result, err := gosoldeploy.Upgrade(ctx, config, program, data)
+	if err != nil {
+		if hasPartialDeployJournal(result) {
+			encoded, _ := json.Marshal(result)
+			fmt.Fprintf(stderr, "partial upgrade journal: %s\n", encoded)
 		}
 		return err
 	}

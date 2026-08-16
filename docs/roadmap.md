@@ -121,7 +121,7 @@ Token or Token-2022. A persistent Testnet program and initialized custom mint
 are now recorded in `examples/gospl/testnet-deployment.json`; this does not make
 the custom accounts compatible with wallet SPL-token indexes.
 
-## 7. Official-validator and deployment tooling — new deploy implemented
+## 7. Official-validator and deployment tooling — new deploy and upgrade implemented
 
 Implemented:
 
@@ -130,14 +130,19 @@ Implemented:
   checks, and JSON-RPC account decoding
 - Go-only new-program upgradeable-loader workflow: create buffer, write chunks,
   verify finalized bytes, deploy, and verify executable program state
-- CLI key generation, guarded airdrop, strict-ELF verification, guarded deploy,
-  and opt-in real-SVM test selection
+- Go-only upgrade workflow (`deploy.Upgrade`, `sdk/loader.Upgrade`, CLI
+  `upgrade`) for an already-deployed program: fails closed client-side if the
+  program doesn't exist, the caller's authority doesn't match on-chain state,
+  or the new ELF exceeds the allocated `MaxDataLen`, before any transaction is
+  sent; verified end-to-end on a live devnet program in the 2026-08-17
+  development session
+- CLI key generation, guarded airdrop, strict-ELF verification, guarded
+  deploy/upgrade, and opt-in real-SVM test selection
 - preloaded-program and Go-only deployment acceptance tests, skipped without
   the external official Agave binary and ELF environment variables
 
 Not implemented:
 
-- upgrade of an existing program; existing program accounts are rejected
 - durable on-disk deploy journal/restart recovery
 - authority rotation, close/finalize workflows, verifiable/reproducible build
   metadata, and public-cluster release automation
@@ -150,17 +155,33 @@ evidence, but its final deploy transaction used Agave's `program deploy
 --buffer`; it is evidence for the Go-compiled artifact, not an end-to-end
 Go-only public transport run.
 
-## 8. High-level framework experience — future
+## 8. High-level framework experience — partial
+
+Implemented:
+
+- multi-file compilation of one package (`compiler.CompileFiles`/`ParseFiles`,
+  `go-solana build a.go b.go`): a function in one file may call a function
+  defined in another file in the same build; a deliberate safe cross-package
+  import/module model is still future work, so external imports remain
+  rejected regardless of file count
+- a flat, compiler-recognized account-field intrinsic family (`AccountIsSigner`
+  and similar) that removes hand-computed ABIv1 offsets for the common
+  read-only case — see `examples/context`. This is deliberately *not* the
+  compiler-supported `Context`/Pubkey/account-view type system below: it is
+  a family of plain functions, not structs or methods, because the compiler
+  does not support either yet
+- explicit upgrade workflow (§7); recovery is still an in-memory record, not
+  durable
 
 The remaining Anchor-like milestone includes:
 
-- multi-file packages and a deliberate safe import/module model
 - compiler-supported `Context`, Pubkey, account views, and deterministic state
-  types without a Go heap or GC
+  types without a Go heap or GC — this needs guest struct/method support,
+  which is a larger, separate change from the flat intrinsics above
 - declarative account constraints, typed instructions/errors, client/IDL
   generation, and safer syscall/CPI wrappers
 - complete syscall/runtime feature coverage for the selected Agave pin
-- explicit upgrade and recovery workflows
+- durable crash recovery for deploy/upgrade
 - broader official-runtime conformance across supported Agave/sBPF versions
 
 No high-level API should be called production-ready until generated guest code

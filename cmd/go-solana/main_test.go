@@ -87,6 +87,31 @@ func TestBuildAndDisassembleOfficialAdd(t *testing.T) {
 	}
 }
 
+func TestBuildAcceptsMultipleSourceFiles(t *testing.T) {
+	directory := t.TempDir()
+	fileA := filepath.Join(directory, "a.go")
+	fileB := filepath.Join(directory, "b.go")
+	if err := os.WriteFile(fileA, []byte("package program\nfunc Add(a uint64, b uint64) uint64 { return a + b }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fileB, []byte("package program\nfunc Main() uint64 { return Add(uint64(4), uint64(6)) }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(directory, "program.sbpf")
+	var stdout, stderr bytes.Buffer
+	if err := runCLI([]string{"build", "-o", output, "-func", "Main", fileA, fileB}, &stdout, &stderr); err != nil {
+		t.Fatalf("build: %v; stderr=%s", err, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if err := runCLI([]string{"run", "-func", "Main", "-files", fileB, fileA}, &stdout, &stderr); err != nil {
+		t.Fatalf("run: %v; stderr=%s", err, stderr.String())
+	}
+	if got, want := strings.TrimSpace(stdout.String()), "result: 10"; got != want {
+		t.Fatalf("run -files output = %q, want %q", got, want)
+	}
+}
+
 func TestRunReportsUnsupportedSource(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "bad.go")
 	if err := os.WriteFile(file, []byte("package main\nfunc F() { go F() }\n"), 0o600); err != nil {

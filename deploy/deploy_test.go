@@ -341,6 +341,252 @@ func TestResumeProgramRejectsWrongBufferAuthority(t *testing.T) {
 	}
 }
 
+func TestUpgradeReplacesLiveProgramAndVerifiesFinalState(t *testing.T) {
+	currentELF := validELF(t)
+	newELF := validELF(t)
+	payer := newSigner(t)
+	authority := newSigner(t)
+	program := newSigner(t).PublicKey
+	client := newUpgradeDeployClient(currentELF, newELF, authority.PublicKey, program)
+	var stages []Stage
+	result, err := Upgrade(context.Background(), Config{
+		Client: client, FeePayer: payer, UpgradeAuthority: authority, ChunkSize: 17,
+		Progress: func(stage Stage) { stages = append(stages, stage) },
+	}, program, newELF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Finalized || result.ProgramID != program {
+		t.Fatalf("upgrade result = %+v", result)
+	}
+	if stages[len(stages)-1].Kind != "upgrade" {
+		t.Fatalf("stages = %+v", stages)
+	}
+	if !bytes.Equal(client.programAfterUpgrade, newELF) {
+		t.Fatal("upgrade did not replace the finalized ProgramData bytes")
+	}
+	// The spill destination defaults to the fee payer when unset.
+	if client.lastSpill != payer.PublicKey {
+		t.Fatalf("spill address = %s, want fee payer %s", client.lastSpill, payer.PublicKey)
+	}
+}
+
+func TestUpgradeRejectsMissingOrNonExecutableProgram(t *testing.T) {
+	currentELF := validELF(t)
+	newELF := validELF(t)
+	authority := newSigner(t)
+	program := newSigner(t).PublicKey
+	for _, test := range []struct {
+		name   string
+		mutate func(*upgradeDeployClient)
+	}{
+		{"missing", func(c *upgradeDeployClient) { c.missingProgram = true }},
+		{"not executable", func(c *upgradeDeployClient) { c.notExecutableProgram = true }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := newUpgradeDeployClient(currentELF, newELF, authority.PublicKey, program)
+			test.mutate(client)
+			_, err := Upgrade(context.Background(), Config{
+				Client: client, FeePayer: newSigner(t), UpgradeAuthority: authority,
+			}, program, newELF)
+			if !errors.Is(err, ErrProgramNotFound) {
+				t.Fatalf("Upgrade error = %v, want ErrProgramNotFound", err)
+			}
+			if client.sendCalls != 0 {
+				t.Fatal("transaction was submitted before existence check")
+			}
+		})
+	}
+}
+
+func TestUpgradeRejectsAuthorityMismatchBeforeAnyTransaction(t *testing.T) {
+	currentELF := validELF(t)
+	newELF := validELF(t)
+	onChainAuthority := newSigner(t)
+	wrongAuthority := newSigner(t)
+	program := newSigner(t).PublicKey
+	client := newUpgradeDeployClient(currentELF, newELF, onChainAuthority.PublicKey, program)
+	_, err := Upgrade(context.Background(), Config{
+		Client: client, FeePayer: newSigner(t), UpgradeAuthority: wrongAuthority,
+	}, program, newELF)
+	if !errors.Is(err, ErrUpgradeAuthorityMismatch) {
+		t.Fatalf("Upgrade error = %v, want ErrUpgradeAuthorityMismatch", err)
+	}
+	if client.sendCalls != 0 {
+		t.Fatal("transaction was submitted before authority check")
+	}
+}
+
+func TestUpgradeRejectsELFLargerThanAllocatedCapacity(t *testing.T) {
+	currentELF := validELF(t)
+	authority := newSigner(t)
+	program := newSigner(t).PublicKey
+	oversized := append(append([]byte(nil), currentELF...), 0, 0, 0, 0)
+	client := newUpgradeDeployClient(currentELF, oversized, authority.PublicKey, program)
+	_, err := Upgrade(context.Background(), Config{
+		Client: client, FeePayer: newSigner(t), UpgradeAuthority: authority,
+	}, program, oversized)
+	if !errors.Is(err, ErrProgramTooLargeForUpgrade) {
+		t.Fatalf("Upgrade error = %v, want ErrProgramTooLargeForUpgrade", err)
+	}
+	if client.sendCalls != 0 {
+		t.Fatal("transaction was submitted before capacity check")
+	}
+}
+
+func TestUpgradeRejectsCorruptFinalizedBuffer(t *testing.T) {
+	currentELF := validELF(t)
+	newELF := validELF(t)
+	authority := newSigner(t)
+	program := newSigner(t).PublicKey
+	client := newUpgradeDeployClient(currentELF, newELF, authority.PublicKey, program)
+	client.corruptFinalBuffer = true
+	_, err := Upgrade(context.Background(), Config{
+		Client: client, FeePayer: newSigner(t), UpgradeAuthority: authority,
+	}, program, newELF)
+	if err == nil || !strings.Contains(err.Error(), "do not match the strict ELF") {
+		t.Fatalf("Upgrade error = %v, want finalized buffer mismatch", err)
+	}
+	if client.upgradeCalls != 0 {
+		t.Fatal("upgrade instruction was submitted despite corrupt buffer")
+	}
+}
+
+func TestUpgradeRecordsAmbiguousSignature(t *testing.T) {
+	currentELF := validELF(t)
+	newELF := validELF(t)
+	authority := newSigner(t)
+	program := newSigner(t).PublicKey
+	client := newUpgradeDeployClient(currentELF, newELF, authority.PublicKey, program)
+	ambiguous := errors.New("upgrade confirmation outcome unknown")
+	client.upgradeSignature = "upgrade-local-signature"
+	client.upgradeErr = ambiguous
+	result, err := Upgrade(context.Background(), Config{
+		Client: client, FeePayer: newSigner(t), UpgradeAuthority: authority,
+	}, program, newELF)
+	if !errors.Is(err, ambiguous) {
+		t.Fatalf("Upgrade error = %v, want ambiguous upgrade error", err)
+	}
+	if !containsString(result.SubmittedSignatures, client.upgradeSignature) {
+		t.Fatalf("submitted journal does not contain upgrade signature: %#v", result)
+	}
+	if containsString(result.Signatures, client.upgradeSignature) {
+		t.Fatalf("ambiguous upgrade recorded as finalized: %#v", result.Signatures)
+	}
+}
+
+type upgradeDeployClient struct {
+	currentELF                           []byte
+	authority, programID, programData    sdk.Pubkey
+	maxDataLen                           int
+	buffer                               sdk.Pubkey
+	bufferData                           []byte
+	missingProgram, notExecutableProgram bool
+	corruptFinalBuffer                   bool
+	programAfterUpgrade                  []byte
+	lastSpill                            sdk.Pubkey
+	writeOffsets                         []int
+	sendCalls, upgradeCalls              int
+	upgradeSignature                     string
+	upgradeErr                           error
+}
+
+func newUpgradeDeployClient(currentELF, newELF []byte, authority, programID sdk.Pubkey) *upgradeDeployClient {
+	programData, _ := loader.ProgramDataAddress(programID)
+	return &upgradeDeployClient{
+		currentELF: currentELF, authority: authority, programID: programID, programData: programData,
+		maxDataLen:       len(currentELF),
+		bufferData:       canonicalBufferData(make([]byte, len(newELF)), authority),
+		upgradeSignature: "upgrade-finalized",
+	}
+}
+
+func (client *upgradeDeployClient) GetAccountInfo(_ context.Context, address sdk.Pubkey) (*svmtest.AccountInfo, error) {
+	switch address {
+	case client.programID:
+		if client.missingProgram {
+			return nil, nil
+		}
+		data := make([]byte, loader.ProgramMetadataSize)
+		binary.LittleEndian.PutUint32(data[:4], 2)
+		copy(data[4:], client.programData[:])
+		return encodedAccount(loader.ProgramID.String(), !client.notExecutableProgram, 1, data), nil
+	case client.programData:
+		programBytes := make([]byte, client.maxDataLen)
+		if client.programAfterUpgrade != nil {
+			copy(programBytes, client.programAfterUpgrade)
+		} else {
+			copy(programBytes, client.currentELF)
+		}
+		data := make([]byte, loader.ProgramDataMetadataSize+client.maxDataLen)
+		binary.LittleEndian.PutUint32(data[:4], 3)
+		binary.LittleEndian.PutUint64(data[4:12], 5)
+		data[12] = 1
+		copy(data[13:loader.ProgramDataMetadataSize], client.authority[:])
+		copy(data[loader.ProgramDataMetadataSize:], programBytes)
+		return encodedAccount(loader.ProgramID.String(), false, 1, data), nil
+	default:
+		if client.buffer == (sdk.Pubkey{}) {
+			client.buffer = address
+		}
+		if address != client.buffer {
+			return nil, fmt.Errorf("unexpected account lookup %s", address)
+		}
+		payload := client.bufferData
+		if client.corruptFinalBuffer {
+			payload = append([]byte(nil), payload...)
+			payload[len(payload)-1] ^= 0xff
+		}
+		return encodedAccount(loader.ProgramID.String(), false, 10, payload), nil
+	}
+}
+
+func (*upgradeDeployClient) GenesisHash(context.Context) (string, error) {
+	return "upgrade-genesis", nil
+}
+
+func (*upgradeDeployClient) MinimumBalanceForRentExemption(context.Context, uint64) (uint64, error) {
+	return 1, nil
+}
+
+func (*upgradeDeployClient) Balance(context.Context, sdk.Pubkey) (uint64, error) {
+	return 1_000_000, nil
+}
+
+func (client *upgradeDeployClient) SendInstructions(_ context.Context, _ svmtest.Signer, _ []svmtest.Signer, instructions []sdk.Instruction) (string, error) {
+	client.sendCalls++
+	if len(instructions) == 2 {
+		return "upgrade-create-buffer", nil
+	}
+	if len(instructions) != 1 || len(instructions[0].Data) != 4 || binary.LittleEndian.Uint32(instructions[0].Data) != 3 {
+		return "", fmt.Errorf("unexpected upgrade instructions: %#v", instructions)
+	}
+	client.upgradeCalls++
+	client.lastSpill = instructions[0].Accounts[3].Pubkey
+	if client.upgradeErr != nil {
+		return client.upgradeSignature, client.upgradeErr
+	}
+	client.programAfterUpgrade = append([]byte(nil), client.bufferData[loader.BufferMetadataSize:]...)
+	return client.upgradeSignature, nil
+}
+
+func (client *upgradeDeployClient) SendInstructionsConfirmed(_ context.Context, _ svmtest.Signer, _ []svmtest.Signer, instructions []sdk.Instruction) (string, error) {
+	if len(instructions) != 1 || len(instructions[0].Data) < 16 || binary.LittleEndian.Uint32(instructions[0].Data[:4]) != 1 {
+		return "", fmt.Errorf("unexpected buffer write: %#v", instructions)
+	}
+	data := instructions[0].Data
+	offset := int(binary.LittleEndian.Uint32(data[4:8]))
+	length := int(binary.LittleEndian.Uint64(data[8:16]))
+	if length != len(data)-16 || offset < 0 || offset+length > len(client.bufferData)-loader.BufferMetadataSize {
+		return "", fmt.Errorf("invalid write offset=%d length=%d", offset, length)
+	}
+	copy(client.bufferData[loader.BufferMetadataSize+offset:], data[16:])
+	client.writeOffsets = append(client.writeOffsets, offset)
+	return fmt.Sprintf("upgrade-write-%d", len(client.writeOffsets)), nil
+}
+
+func (*upgradeDeployClient) WaitForFinalized(context.Context, string) error { return nil }
+
 type resumeDeployClient struct {
 	elf                   []byte
 	authority, programID  sdk.Pubkey

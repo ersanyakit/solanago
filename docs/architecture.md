@@ -5,7 +5,7 @@
 The compiler frontend and backend are shared by two explicit artifact modes:
 
 ```text
-one Go source file
+one or more Go source files of the same package
   -> parser (`go/parser`, `go/ast`, `go/token`)
   -> fail-closed subset validation + `go/types`
   -> typed, AST-independent control-flow IR
@@ -56,9 +56,16 @@ examples/       scalar programs, low-level CPI, GOSPL, and native token oracle
 
 `runtime`, `serialization`, and `sdk` are real tested host packages. They are
 not automatically guest libraries: the compiler rejects imports, structs,
-methods, selectors, slices, and multi-file package builds. The current compiled
-GOSPL and CPI examples therefore use fixed arrays plus explicit virtual-address
-operations instead of importing `runtime.Context` or `sdk.Instruction`.
+methods, and selectors/slices of arbitrary shape. Several same-package source
+files *can* be compiled together (`ParseFiles`/`CompileFiles`; see
+`examples/context`), but that is still one guest package with no external
+imports, not a way to reach `runtime`/`sdk`. The current compiled GOSPL and
+CPI examples therefore use fixed arrays plus explicit virtual-address
+operations instead of importing `runtime.Context` or `sdk.Instruction`; the
+account-field intrinsic family (`AccountIsSigner` and similar,
+`compiler/checker.go`'s `accountFieldIntrinsics`) narrows that gap for the
+common case of reading account flags/addresses without hand-computed offsets,
+without requiring guest struct/method support.
 
 ## Compiler invariants
 
@@ -145,9 +152,15 @@ API.
 `deploy.Program` can create a new upgradeable-loader program from a locally
 validated strict ELF. It constructs and signs transactions in Go, verifies the
 finalized buffer bytes before the final deploy, and fails closed if the program
-account already exists. The returned partial record is in memory only.
+account already exists. `deploy.Upgrade` is the separate, explicit path for an
+already-deployed program: it fails closed if the program doesn't exist, if the
+caller's authority doesn't match the on-chain authority, or if the new ELF
+exceeds the `MaxDataLen` allocated at first deploy, before submitting any
+transaction. Both share the same buffer-write-then-verify machinery
+(`writeBufferChunks`) and re-read finalized account bytes before returning
+`Finalized: true`. The returned record is in memory only, on both paths.
 
-Program upgrade, authority rotation/closure, durable crash recovery, and an
-Anchor-like deployment manifest are not implemented. Official-validator tests
-are opt-in external acceptance gates, not part of ordinary unit execution and
-not evidence of a persistent public-cluster deployment.
+Authority rotation/closure, durable crash recovery, and an Anchor-like
+deployment manifest are not implemented. Official-validator tests are opt-in
+external acceptance gates, not part of ordinary unit execution and not
+evidence of a persistent public-cluster deployment.

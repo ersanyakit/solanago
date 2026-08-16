@@ -23,9 +23,16 @@ Go source -> the same compiler -> generated r1/r2 entrypoint wrapper
           -> sBPFv3 text -> strict ET_DYN/EM_BPF ELF
 ```
 
-The compilation unit is one Go source file containing package-level functions.
-Imports, multi-file package compilation, structs, methods, and a high-level
-`Context` source API are not accepted by the guest compiler.
+The compilation unit is one or more Go source files of the same package,
+containing package-level functions; a function in one file may call a
+function defined in another file in the same build (`go-solana build
+a.go b.go`, or `compiler.CompileFiles`). Imports of external packages,
+structs, methods, and a full struct/method-based `Context` source API are
+still not accepted by the guest compiler. A flat, compiler-recognized family
+of account-field intrinsics (`AccountIsSigner`, `AccountKeyAddress`, and
+similar — see [`examples/context`](examples/context/README.md)) replaces
+hand-computed ABIv1 byte offsets for the common case without requiring that
+larger struct/method redesign.
 
 ### Scalar compiler smoke test
 
@@ -93,6 +100,11 @@ VM pass is therefore not a validator execution claim.
   and pointers to supported fixed-width memory scalars
 - explicit guest-memory load/store intrinsics and a small, source-pinned
   Solana syscall-intrinsic surface
+- a flat account-field intrinsic family (`AccountIsSigner`, `AccountIsWritable`,
+  `AccountIsExecutable`, `AccountKeyAddress`, `AccountOwnerAddress`,
+  `AccountLamportsAddress`, `AccountDataLen`, `AccountDataAddress`) that
+  lowers to the same const-offset-add(-load) instructions a hand-written
+  `LoadX(record+uint64(N))` expression already produces
 
 Pointers are sBPF virtual addresses, never Go host pointers. Pointer-typed
 results are rejected and fixed arrays cannot cross the register ABI. The
@@ -113,13 +125,13 @@ maps, structs, methods, interfaces, closures, goroutines, channels, `range`,
 
 | Layer | Implemented | Deliberate boundary |
 | --- | --- | --- |
-| Compiler, ISA, and VM | Typed IR, 8/32/64-bit values, arrays/pointers, allocation/spills, sBPFv3 encoding/verifier/disassembler, bounded reference execution | The VM does not execute Solana static syscalls and is not Agave |
+| Compiler, ISA, and VM | Typed IR, 8/32/64-bit values, arrays/pointers, allocation/spills, sBPFv3 encoding/verifier/disassembler, bounded reference execution, multi-file (same-package) compilation | The VM does not execute Solana static syscalls and is not Agave; no cross-package imports |
 | Solana entry and ELF | Generated low-level `r1/r2` wrapper, strict v3 ELF writer/parser, CLI build/verify/disassemble | No relocations, writable ELF data, guest Go runtime, or high-level source wrapper |
-| Runtime model | Pinned ABIv1 serialization/parsing, direct account mapping, `runtime.Context`, account privilege/change checks, program-error mapping, C CPI layouts | These are host-side Go APIs and test infrastructure; guest imports/structs/methods are still unsupported |
-| PDA and syscalls | Host `CreateProgramAddress`/`FindProgramAddress` with official vectors; versioned syscall registry; compiler intrinsics for log, memory, PDA, and `sol_invoke_signed_c` | No typed guest seed/account API and no syscall execution in the reference VM |
+| Runtime model | Pinned ABIv1 serialization/parsing, direct account mapping, `runtime.Context`, account privilege/change checks, program-error mapping, C CPI layouts | These are host-side Go APIs and test infrastructure; guest structs/methods and imports are still unsupported |
+| PDA and syscalls | Host `CreateProgramAddress`/`FindProgramAddress` with official vectors; versioned syscall registry; compiler intrinsics for log, memory, PDA, `sol_invoke_signed_c`, and flat account-field access (`AccountIsSigner` and similar) | No typed guest seed API, no struct/method-based `Context`, and no syscall execution in the reference VM |
 | CPI | C/Rust layout translation, privilege/PDA-signer validation, atomic rollback, post-CPI realloc synchronization, a compiled C-CPI example, and an opt-in official-Agave acceptance test | No reference-VM/default host executor and no high-level `Context.Invoke`; an injected executor also requires an explicit program policy |
-| SDK | Host-side Pubkey/instruction types; pinned System and classic Token interfaces; Token-2022 base/TLV plus selected extension builders; upgradeable-loader codecs | SDK packages cannot be imported by guest source; not every Token-2022 extension instruction has a typed builder |
-| Deploy/test tooling | JSON-RPC transaction/signing client, isolated official-validator harness, and new-program upgradeable-loader deploy workflow | Existing programs fail closed; upgrade is not implemented, and partial progress is only an in-memory recovery record |
+| SDK | Host-side Pubkey/instruction types; pinned System and classic Token interfaces; Token-2022 base/TLV plus selected extension builders; upgradeable-loader codecs including `Upgrade` | SDK packages cannot be imported by guest source; not every Token-2022 extension instruction has a typed builder |
+| Deploy/test tooling | JSON-RPC transaction/signing client, isolated official-validator harness, new-program upgradeable-loader deploy workflow, and an explicit `Upgrade` workflow for already-deployed programs | Existing-program deploy still fails closed (use `upgrade` instead); authority rotation/close are not implemented; partial progress is only an in-memory recovery record |
 
 The main packages are `compiler`, `sbpf`, `elf`, `vm`, `runtime`,
 `serialization`, `sdk` (including `system`, `token`, `token2022`, and
@@ -220,8 +232,8 @@ metadata (name/symbol/URI) extension setup is not yet implemented in this flow.
 The `deploy` command is intentionally guarded. It validates strict ELF, refuses
 non-loopback RPC endpoints unless `--allow-live` is explicit, and only creates
 new programs. Existing finalized loader buffers can be resumed explicitly with
-`--buffer`; there is no program-upgrade command. The current public Testnet
-deployment is recorded in `examples/gospl/testnet-deployment.json`.
+`--buffer`. The current public Testnet deployment is recorded in
+`examples/gospl/testnet-deployment.json`.
 
 The complete Go-only build/deploy flow is:
 
@@ -231,6 +243,23 @@ go run ./cmd/go-solana verify program.so
 go run ./cmd/go-solana keygen -o program-keypair.json
 go run ./cmd/go-solana deploy \
   --program-id program-keypair.json \
+  --keypair funded-payer.json \
+  --url localhost program.so
+```
+
+A separate `upgrade` command replaces an already-deployed program's code in
+place. Unlike `deploy`, it takes the program's existing address (not a
+keypair — the program account does not sign an upgrade) and an explicit
+upgrade-authority keypair; it fails closed if the program doesn't exist yet,
+if the on-chain authority doesn't match, or if the new ELF is larger than the
+`MaxDataLen` the program was allocated at its first deploy (that ceiling
+cannot grow):
+
+```bash
+go run ./cmd/go-solana build -target solana -o program.so program.go
+go run ./cmd/go-solana upgrade \
+  --program PROGRAM_ADDRESS \
+  --authority upgrade-authority.json \
   --keypair funded-payer.json \
   --url localhost program.so
 ```

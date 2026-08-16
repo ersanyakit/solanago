@@ -265,6 +265,33 @@ func TestUnsupportedSyntaxFailsClearly(t *testing.T) {
 	}
 }
 
+func TestCompileSourcesAcrossMultipleFiles(t *testing.T) {
+	fileA := []byte("package program\nfunc Add(a uint64, b uint64) uint64 { return a + b }\n")
+	fileB := []byte("package program\nfunc Main() uint64 { return Add(uint64(2), uint64(3)) }\n")
+	program, err := CompileSources([]string{"a.go", "b.go"}, [][]byte{fileA, fileB})
+	if err != nil {
+		t.Fatalf("CompileSources: %v", err)
+	}
+	if _, ok := program.Function("Add"); !ok {
+		t.Fatal("Add from a.go not found in the compiled package")
+	}
+	executable, err := Generate(program, "Main")
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if got := runExecutable(t, executable); got != 5 {
+		t.Fatalf("Main() = %d, want 5 (Main in b.go calling Add in a.go)", got)
+	}
+}
+
+func TestCompileSourcesRejectsMismatchedPackageClause(t *testing.T) {
+	fileA := []byte("package program\nfunc Add(a uint64, b uint64) uint64 { return a + b }\n")
+	fileB := []byte("package other\nfunc Main() uint64 { return Add(uint64(2), uint64(3)) }\n")
+	if _, err := CompileSources([]string{"a.go", "b.go"}, [][]byte{fileA, fileB}); err == nil {
+		t.Fatal("CompileSources succeeded across mismatched package clauses, want error")
+	}
+}
+
 func TestMalformedSourceAndIRReturnErrors(t *testing.T) {
 	if _, err := CompileSource("bad.go", []byte("package main\nfunc")); err == nil || !strings.Contains(err.Error(), "parse") {
 		t.Fatalf("parse error = %v", err)
