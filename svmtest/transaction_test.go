@@ -66,7 +66,8 @@ func TestBuildVersionedTransactionUsesVersion0Prefix(t *testing.T) {
 	if got, want := message[0], byte(0x80); got != want {
 		t.Fatalf("version byte = %x, want %x", got, want)
 	}
-	if message[1] != 2 || message[2] != 1 || message[3] != 0 {
+	// message header: requiredSignatures=2, readonlySigned=1, readonlyUnsigned=1
+	if message[1] != 2 || message[2] != 1 || message[3] != 1 {
 		t.Fatalf("unexpected message header %v", message[1:4])
 	}
 	if !ed25519.Verify(payer.PublicKey[:], message, transaction[1:65]) {
