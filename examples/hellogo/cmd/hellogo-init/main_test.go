@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ersanyakit/go-solana/examples/hellogo"
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/loader"
-	"github.com/ersanyakit/go-solana/svmtest"
+	"github.com/ersanyakit/solanago/examples/hellogo"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/loader"
+	"github.com/ersanyakit/solanago/svmtest"
 )
 
 func TestParseAndFormatUIAmount(t *testing.T) {

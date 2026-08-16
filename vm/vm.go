@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/solanago/sbpf"
 )
 
 const (

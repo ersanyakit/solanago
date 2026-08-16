@@ -3,7 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/solanago/sbpf"
 )
 
 // GenerateSolanaEntrypoint emits an sBPFv3 program whose physical PC zero is

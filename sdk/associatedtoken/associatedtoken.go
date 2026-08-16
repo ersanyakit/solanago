@@ -6,8 +6,8 @@
 package associatedtoken
 
 import (
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/system"
 )
 
 // ProgramID is the SPL Associated Token Account program address, identical

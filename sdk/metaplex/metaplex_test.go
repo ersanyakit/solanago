@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/system"
 )
 
 func testPubkey(t *testing.T, seed byte) sdk.Pubkey {

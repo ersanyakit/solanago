@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ersanyakit/go-solana/examples/gospl"
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/loader"
-	"github.com/ersanyakit/go-solana/sdk/system"
-	"github.com/ersanyakit/go-solana/svmtest"
+	"github.com/ersanyakit/solanago/examples/gospl"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/loader"
+	"github.com/ersanyakit/solanago/sdk/system"
+	"github.com/ersanyakit/solanago/svmtest"
 )
 
 func TestParseAndFormatUIAmount(t *testing.T) {

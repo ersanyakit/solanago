@@ -8,7 +8,7 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/solanago/sdk"
 )
 
 var (

@@ -17,13 +17,13 @@ import (
 	"strings"
 	"time"
 
-	gosoldeploy "github.com/ersanyakit/go-solana/deploy"
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/associatedtoken"
-	"github.com/ersanyakit/go-solana/sdk/metaplex"
-	"github.com/ersanyakit/go-solana/sdk/system"
-	"github.com/ersanyakit/go-solana/sdk/token2022"
-	"github.com/ersanyakit/go-solana/svmtest"
+	gosoldeploy "github.com/ersanyakit/solanago/deploy"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/associatedtoken"
+	"github.com/ersanyakit/solanago/sdk/metaplex"
+	"github.com/ersanyakit/solanago/sdk/system"
+	"github.com/ersanyakit/solanago/sdk/token2022"
+	"github.com/ersanyakit/solanago/svmtest"
 )
 
 const minimumFeeReserveLamports = uint64(100_000)

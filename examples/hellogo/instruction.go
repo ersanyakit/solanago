@@ -3,7 +3,7 @@ package hellogo
 import (
 	"encoding/binary"
 
-	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/solanago/sdk"
 )
 
 // DecodeInstruction verifies exact lengths and canonical optional-authority

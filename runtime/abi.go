@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ersanyakit/go-solana/sbpf"
-	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/solanago/sbpf"
+	"github.com/ersanyakit/solanago/sdk"
 )
 
 const (

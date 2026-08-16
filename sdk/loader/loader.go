@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/system"
 )
 
 const (

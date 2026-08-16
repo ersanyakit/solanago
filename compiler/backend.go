@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/solanago/sbpf"
 )
 
 // Executable is an sBPFv3 raw text program. Bytecode is intentionally not an

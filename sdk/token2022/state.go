@@ -1,8 +1,8 @@
 package token2022
 
 import (
-	"github.com/ersanyakit/go-solana/sdk"
-	classic "github.com/ersanyakit/go-solana/sdk/token"
+	"github.com/ersanyakit/solanago/sdk"
+	classic "github.com/ersanyakit/solanago/sdk/token"
 )
 
 type Mint struct {

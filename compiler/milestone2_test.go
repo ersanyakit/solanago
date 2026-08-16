@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ersanyakit/go-solana/sbpf"
-	"github.com/ersanyakit/go-solana/vm"
+	"github.com/ersanyakit/solanago/sbpf"
+	"github.com/ersanyakit/solanago/vm"
 )
 
 func TestMilestone2RejectsMemoryEscapesAndBadIntrinsics(t *testing.T) {

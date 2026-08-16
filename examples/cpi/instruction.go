@@ -6,8 +6,8 @@ package cpi
 import (
 	"encoding/binary"
 
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/system"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/system"
 )
 
 const TransferDataSize = 8

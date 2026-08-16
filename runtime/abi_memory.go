@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/solanago/sdk"
 )
 
 // MemoryMap builds the split sBPF mapping emitted by direct account-data mode.

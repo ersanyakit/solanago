@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/solanago/sbpf"
 )
 
 func TestV3ALU32AndJump32Semantics(t *testing.T) {

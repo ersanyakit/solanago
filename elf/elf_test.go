@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ersanyakit/go-solana/sbpf"
+	"github.com/ersanyakit/solanago/sbpf"
 )
 
 // sbpfv3ReturnOK is Agave's programs/bpf_loader/test_elfs/out/

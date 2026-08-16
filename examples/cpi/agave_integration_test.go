@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ersanyakit/go-solana/compiler"
-	"github.com/ersanyakit/go-solana/deploy"
-	sbpfelf "github.com/ersanyakit/go-solana/elf"
-	"github.com/ersanyakit/go-solana/examples/cpi"
-	"github.com/ersanyakit/go-solana/sdk"
-	"github.com/ersanyakit/go-solana/sdk/system"
-	"github.com/ersanyakit/go-solana/svmtest"
+	"github.com/ersanyakit/solanago/compiler"
+	"github.com/ersanyakit/solanago/deploy"
+	sbpfelf "github.com/ersanyakit/solanago/elf"
+	"github.com/ersanyakit/solanago/examples/cpi"
+	"github.com/ersanyakit/solanago/sdk"
+	"github.com/ersanyakit/solanago/sdk/system"
+	"github.com/ersanyakit/solanago/svmtest"
 )
 
 // TestAgaveSystemTransferCPI deploys a Go-compiled ELF through the Go loader,

@@ -6,7 +6,7 @@ package system
 import (
 	"errors"
 
-	"github.com/ersanyakit/go-solana/sdk"
+	"github.com/ersanyakit/solanago/sdk"
 )
 
 var (
