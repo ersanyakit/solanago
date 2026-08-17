@@ -174,7 +174,7 @@ func TestCreateNFTV1AccountsAndData(t *testing.T) {
 	payer := testPubkey(t, 3)
 	tokenProgram := testPubkey(t, 4) // stands in for token2022.ProgramID
 
-	instruction, metadataAddress, masterEditionAddress, err := CreateNFTV1(mint, authority, payer, payer, tokenProgram, false, "WIWIW", "WIWIW", "https://example.com/m.json", false)
+	instruction, metadataAddress, masterEditionAddress, err := CreateNFTV1(mint, authority, payer, payer, tokenProgram, false, "WIWIW", "WIWIW", "https://example.com/m.json", false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,6 +261,67 @@ func TestCreateNFTV1AccountsAndData(t *testing.T) {
 	offset += 2
 	if offset != len(data) {
 		t.Fatalf("trailing bytes after decode: consumed %d of %d", offset, len(data))
+	}
+}
+
+func TestCreateNFTV1WithRoyaltySetsVerifiedCreator(t *testing.T) {
+	mint := testPubkey(t, 1)
+	authority := testPubkey(t, 2)
+	payer := testPubkey(t, 3)
+	tokenProgram := testPubkey(t, 4)
+
+	instruction, _, _, err := CreateNFTV1(mint, authority, payer, payer, tokenProgram, false, "N", "S", "https://example.com/m.json", false, 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := instruction.Data
+	offset := 2
+	_, offset = readTestBorshString(t, data, offset) // name
+	_, offset = readTestBorshString(t, data, offset) // symbol
+	_, offset = readTestBorshString(t, data, offset) // uri
+	sellerFee := binary.LittleEndian.Uint16(data[offset : offset+2])
+	offset += 2
+	if sellerFee != 500 {
+		t.Fatalf("seller_fee_basis_points = %d, want 500", sellerFee)
+	}
+	if data[offset] != 1 {
+		t.Fatalf("creators option byte = %d, want 1 (Some)", data[offset])
+	}
+	offset++
+	creatorCount := binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+	if creatorCount != 1 {
+		t.Fatalf("creators length = %d, want 1", creatorCount)
+	}
+	gotAddress, err := sdk.PubkeyFromBytes(data[offset : offset+sdk.PubkeySize])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotAddress != payer { // updateAuthority == payer in this call
+		t.Fatalf("creator address = %s, want update authority %s", gotAddress, payer)
+	}
+	offset += sdk.PubkeySize
+	if data[offset] != 1 {
+		t.Fatalf("creator.verified = %d, want 1 (true)", data[offset])
+	}
+	offset++
+	if data[offset] != 100 {
+		t.Fatalf("creator.share = %d, want 100", data[offset])
+	}
+	offset++
+	if data[offset] != 0 { // primary_sale_happened
+		t.Fatalf("primary_sale_happened byte = %d, want 0", data[offset])
+	}
+}
+
+func TestCreateNFTV1RejectsExcessiveRoyalty(t *testing.T) {
+	mint := testPubkey(t, 1)
+	authority := testPubkey(t, 2)
+	payer := testPubkey(t, 3)
+	tokenProgram := testPubkey(t, 4)
+
+	if _, _, _, err := CreateNFTV1(mint, authority, payer, payer, tokenProgram, false, "N", "S", "u", false, 10001); err == nil {
+		t.Fatal("seller fee basis points above 10000 accepted")
 	}
 }
 

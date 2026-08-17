@@ -20,6 +20,7 @@ package metaplex
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/ersanyakit/solanago/sdk"
@@ -155,12 +156,30 @@ func CreateV1(
 //     the derived Master Edition PDA as a side effect of creating it,
 //     permanently capping supply at 1 — no separate "disable mint
 //     authority" call is needed, or possible, afterward.
+//
+// sellerFeeBasisPoints (0..=10000, i.e. 0%..100%) is the marketplace
+// royalty signal read by Magic Eden/Tensor/etc. It is a soft, metadata-only
+// signal for a plain NonFungible standard (unlike ProgrammableNonFungible,
+// which this package does not build): a marketplace can choose not to
+// honor it, since there is no on-chain rule set enforcing it. When
+// sellerFeeBasisPoints is nonzero, this function sets a single verified
+// creator — updateAuthority, share 100 — as the royalty recipient;
+// mpl-token-metadata only accepts a creator's verified=true when its
+// address equals updateAuthority and updateAuthority is a transaction
+// signer (assertions::metadata::assert_data_valid), which holds here
+// whenever updateAuthority also signs elsewhere in the same transaction
+// (e.g. as fee payer), regardless of updateAuthoritySigner's value on this
+// instruction's own account meta.
 func CreateNFTV1(
 	mint, mintAuthority, payer, updateAuthority, tokenProgramID sdk.Pubkey,
 	updateAuthoritySigner bool,
 	name, symbol, uri string,
 	isMutable bool,
+	sellerFeeBasisPoints uint16,
 ) (sdk.Instruction, sdk.Pubkey, sdk.Pubkey, error) {
+	if sellerFeeBasisPoints > 10000 {
+		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, fmt.Errorf("metaplex: seller fee basis points %d exceeds 10000 (100%%)", sellerFeeBasisPoints)
+	}
 	metadataAddress, _, err := DeriveMetadataAddress(mint)
 	if err != nil {
 		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
@@ -183,17 +202,25 @@ func CreateNFTV1(
 	if err != nil {
 		return sdk.Instruction{}, sdk.Pubkey{}, sdk.Pubkey{}, err
 	}
-	data = binary.LittleEndian.AppendUint16(data, 0) // seller_fee_basis_points
-	data = append(data, 0)                           // creators: None
-	data = append(data, 0)                           // primary_sale_happened: false
-	data = append(data, boolByte(isMutable))         // is_mutable
-	data = append(data, 0)                           // token_standard: NonFungible
-	data = append(data, 0)                           // collection: None
-	data = append(data, 0)                           // uses: None
-	data = append(data, 0)                           // collection_details: None
-	data = append(data, 0)                           // rule_set: None
-	data = append(data, 1, 0)                        // decimals: Some(0)
-	data = append(data, 1, 0)                        // print_supply: Some(PrintSupply::Zero)
+	data = binary.LittleEndian.AppendUint16(data, sellerFeeBasisPoints)
+	if sellerFeeBasisPoints > 0 {
+		data = append(data, 1)                           // creators: Some(...)
+		data = binary.LittleEndian.AppendUint32(data, 1) // Vec<Creator> len = 1
+		data = append(data, updateAuthority[:]...)       // creator.address
+		data = append(data, 1)                           // creator.verified: true
+		data = append(data, 100)                         // creator.share: 100
+	} else {
+		data = append(data, 0) // creators: None
+	}
+	data = append(data, 0)                   // primary_sale_happened: false
+	data = append(data, boolByte(isMutable)) // is_mutable
+	data = append(data, 0)                   // token_standard: NonFungible
+	data = append(data, 0)                   // collection: None
+	data = append(data, 0)                   // uses: None
+	data = append(data, 0)                   // collection_details: None
+	data = append(data, 0)                   // rule_set: None
+	data = append(data, 1, 0)                // decimals: Some(0)
+	data = append(data, 1, 0)                // print_supply: Some(PrintSupply::Zero)
 
 	instruction := sdk.Instruction{
 		ProgramID: ProgramID,

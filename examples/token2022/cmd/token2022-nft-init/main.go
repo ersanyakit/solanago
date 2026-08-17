@@ -71,11 +71,12 @@ func realDependencies() dependencies {
 }
 
 type config struct {
-	Payer  svmtest.Signer
-	Owner  sdk.Pubkey
-	Name   string
-	Symbol string
-	URI    string
+	Payer              svmtest.Signer
+	Owner              sdk.Pubkey
+	Name               string
+	Symbol             string
+	URI                string
+	RoyaltyBasisPoints uint16
 }
 
 type signatureRecord struct {
@@ -117,6 +118,7 @@ type result struct {
 	Name                    string            `json:"name"`
 	Symbol                  string            `json:"symbol"`
 	URI                     string            `json:"uri"`
+	RoyaltyBasisPoints      uint16            `json:"royalty_basis_points"`
 	SubmittedSignatures     []signatureRecord `json:"submitted_signatures"`
 	NonFinalizedSignatures  []signatureRecord `json:"non_finalized_signatures"`
 	FinalizedSignatures     []signatureRecord `json:"finalized_signatures"`
@@ -141,6 +143,7 @@ func runCLI(arguments []string, stdout, stderr io.Writer, deps dependencies) err
 	symbol := flags.String("symbol", "", "NFT symbol (optional)")
 	uri := flags.String("uri", "", "NFT metadata URI (required)")
 	ownerText := flags.String("owner", "", "NFT owner public key (default fee payer)")
+	royaltyBps := flags.Uint("royalty-bps", 0, "marketplace royalty in basis points, 0..10000 (0=100%); 0 disables royalties (default 0)")
 	allowLive := flags.Bool("allow-live", false, "explicitly permit a non-loopback RPC endpoint")
 	timeout := flags.Duration("timeout", 5*time.Minute, "whole initialization deadline")
 	if err := flags.Parse(arguments); err != nil {
@@ -148,6 +151,9 @@ func runCLI(arguments []string, stdout, stderr io.Writer, deps dependencies) err
 	}
 	if flags.NArg() != 0 || *keypairPath == "" || *name == "" || *uri == "" {
 		return errors.New("expected --keypair FILE, --name NAME, and --uri URI")
+	}
+	if *royaltyBps > 10000 {
+		return fmt.Errorf("royalty-bps %d exceeds 10000 (100%%)", *royaltyBps)
 	}
 	if *timeout <= 0 {
 		return errors.New("timeout must be positive")
@@ -181,11 +187,12 @@ func runCLI(arguments []string, stdout, stderr io.Writer, deps dependencies) err
 	defer cancel()
 	client := deps.newClient(resolvedURL)
 	created, err := initialize(ctx, client, config{
-		Payer:  payer,
-		Owner:  owner,
-		Name:   *name,
-		Symbol: *symbol,
-		URI:    *uri,
+		Payer:              payer,
+		Owner:              owner,
+		Name:               *name,
+		Symbol:             *symbol,
+		URI:                *uri,
+		RoyaltyBasisPoints: uint16(*royaltyBps),
 	}, deps.newSigner, deps.now)
 	if err != nil {
 		if created != nil && created.Mint != "" {
@@ -273,6 +280,7 @@ func initialize(
 		Name:                    cfg.Name,
 		Symbol:                  cfg.Symbol,
 		URI:                     cfg.URI,
+		RoyaltyBasisPoints:      cfg.RoyaltyBasisPoints,
 		SubmittedSignatures:     make([]signatureRecord, 0, 4),
 		NonFinalizedSignatures:  make([]signatureRecord, 0, 1),
 		FinalizedSignatures:     make([]signatureRecord, 0, 4),
@@ -415,7 +423,7 @@ func initialize(
 	// step is needed or possible afterward.
 	createNFT, gotMetadata, gotMasterEdition, err := metaplex.CreateNFTV1(
 		mint.PublicKey, cfg.Payer.PublicKey, cfg.Payer.PublicKey, cfg.Payer.PublicKey, token2022.ProgramID, false,
-		cfg.Name, cfg.Symbol, cfg.URI, false,
+		cfg.Name, cfg.Symbol, cfg.URI, false, cfg.RoyaltyBasisPoints,
 	)
 	if err != nil {
 		return created, fmt.Errorf("build metaplex NFT instruction: %w", err)
