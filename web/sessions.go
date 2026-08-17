@@ -26,15 +26,15 @@ const sessionTTL = 30 * time.Minute
 // browser; PrepareCreateBufferTransaction/PrepareDeployTransaction use the
 // private halves to co-sign, leaving the fee-payer slot for the wallet.
 type deploySession struct {
-	id         string
-	exampleID  string
-	feePayer   sdk.Pubkey
-	rpcURL     string
-	buffer     svmtest.Signer
-	program    svmtest.Signer
-	elfLength  int
-	sourceHash string
-	createdAt  time.Time
+	id        string
+	exampleID string
+	feePayer  sdk.Pubkey
+	rpcURL    string
+	buffer    svmtest.Signer
+	program   svmtest.Signer
+	elfLength int
+	buildID   string
+	createdAt time.Time
 }
 
 type sessionStore struct {
@@ -46,7 +46,7 @@ func newSessionStore() *sessionStore {
 	return &sessionStore{sessions: make(map[string]*deploySession)}
 }
 
-func (s *sessionStore) create(exampleID string, feePayer sdk.Pubkey, rpcURL string, elfLength int, sourceHash string) (*deploySession, error) {
+func (s *sessionStore) create(exampleID string, feePayer sdk.Pubkey, rpcURL string, elfLength int, buildID string) (*deploySession, error) {
 	buffer, err := svmtest.NewSigner()
 	if err != nil {
 		return nil, err
@@ -60,15 +60,15 @@ func (s *sessionStore) create(exampleID string, feePayer sdk.Pubkey, rpcURL stri
 		return nil, err
 	}
 	session := &deploySession{
-		id:         id,
-		exampleID:  exampleID,
-		feePayer:   feePayer,
-		rpcURL:     rpcURL,
-		buffer:     buffer,
-		program:    program,
-		elfLength:  elfLength,
-		sourceHash: sourceHash,
-		createdAt:  time.Now(),
+		id:        id,
+		exampleID: exampleID,
+		feePayer:  feePayer,
+		rpcURL:    rpcURL,
+		buffer:    buffer,
+		program:   program,
+		elfLength: elfLength,
+		buildID:   buildID,
+		createdAt: time.Now(),
 	}
 	s.mu.Lock()
 	s.sweepLocked()

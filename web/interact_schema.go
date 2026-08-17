@@ -110,6 +110,7 @@ var InteractSchemas = map[string]ExampleInteractSchema{
 	"cpi":          cpiSchema(),
 	"payable":      payableSchema(),
 	"phonebook":    phonebookSchema(),
+	"erc20":        erc20Schema(),
 }
 
 func pubkeyField(name string) FieldSpec { return FieldSpec{Name: name, Type: FieldPubkey} }
@@ -572,6 +573,138 @@ func phonebookSchema() ExampleInteractSchema {
 					{Name: "admin", Offset: 2, Type: FieldPubkey},
 					{Name: "treasury", Offset: 34, Type: FieldPubkey},
 					{Name: "feeLamports", Offset: 66, Type: FieldU64},
+				},
+			},
+		},
+	}
+}
+
+func erc20Schema() ExampleInteractSchema {
+	return ExampleInteractSchema{
+		Instructions: []InstructionSpec{
+			{
+				Name: "InitializeMint",
+				Tag:  []byte{0},
+				Accounts: []AccountRoleSpec{
+					{Name: "mint", Signer: true, Writable: true, NewAccount: true, Space: 100},
+				},
+				Fields: []FieldSpec{
+					{Name: "name", Type: FieldString, Len: 32},
+					{Name: "symbol", Type: FieldString, Len: 10},
+					{Name: "decimals", Type: FieldU8},
+					pubkeyField("authority"),
+				},
+				Help: "Creates a new token (name/symbol/decimals) with a mint authority.",
+			},
+			{
+				Name: "InitializeBalance",
+				Tag:  []byte{1},
+				Accounts: []AccountRoleSpec{
+					{Name: "balance", Signer: true, Writable: true, NewAccount: true, Space: 80},
+					{Name: "mint", Signer: false, Writable: false},
+				},
+				Fields: []FieldSpec{pubkeyField("owner")},
+				Help:   "Creates a zeroed balanceOf(owner) entry for mint.",
+			},
+			{
+				Name: "MintTo",
+				Tag:  []byte{2},
+				Accounts: []AccountRoleSpec{
+					{Name: "mint", Signer: false, Writable: true},
+					{Name: "balance", Signer: false, Writable: true},
+					{Name: "authority", Signer: true, Writable: false, Default: "wallet"},
+				},
+				Fields: []FieldSpec{u64Field("amount")},
+				Help:   "Increases totalSupply and balance.amount. authority must be mint's mintAuthority.",
+			},
+			{
+				Name: "Burn",
+				Tag:  []byte{3},
+				Accounts: []AccountRoleSpec{
+					{Name: "balance", Signer: false, Writable: true},
+					{Name: "mint", Signer: false, Writable: true},
+					{Name: "owner", Signer: true, Writable: false, Default: "wallet"},
+				},
+				Fields: []FieldSpec{u64Field("amount")},
+				Help:   "Decreases totalSupply and balance.amount.",
+			},
+			{
+				Name: "Transfer",
+				Tag:  []byte{4},
+				Accounts: []AccountRoleSpec{
+					{Name: "source", Signer: false, Writable: true},
+					{Name: "destination", Signer: false, Writable: true},
+					{Name: "owner", Signer: true, Writable: false, Default: "wallet"},
+				},
+				Fields: []FieldSpec{u64Field("amount")},
+				Help:   "Moves amount from source to destination (same mint).",
+			},
+			{
+				Name: "InitializeAllowance",
+				Tag:  []byte{5},
+				Accounts: []AccountRoleSpec{
+					{Name: "allowance", Signer: true, Writable: true, NewAccount: true, Space: 112},
+					{Name: "mint", Signer: false, Writable: false},
+					{Name: "owner", Signer: true, Writable: false, Default: "wallet"},
+					{Name: "spender", Signer: false, Writable: false},
+				},
+				Help: "Creates a zeroed allowance[owner][spender] entry for mint.",
+			},
+			{
+				Name: "Approve",
+				Tag:  []byte{6},
+				Accounts: []AccountRoleSpec{
+					{Name: "allowance", Signer: false, Writable: true},
+					{Name: "owner", Signer: true, Writable: false, Default: "wallet"},
+				},
+				Fields: []FieldSpec{u64Field("amount")},
+				Help:   "Sets (does not add to) the allowance's amount.",
+			},
+			{
+				Name: "TransferFrom",
+				Tag:  []byte{7},
+				Accounts: []AccountRoleSpec{
+					{Name: "source", Signer: false, Writable: true},
+					{Name: "destination", Signer: false, Writable: true},
+					{Name: "allowance", Signer: false, Writable: true},
+					{Name: "spender", Signer: true, Writable: false, Default: "wallet"},
+				},
+				Fields: []FieldSpec{u64Field("amount")},
+				Help:   "Moves amount from source to destination on behalf of source's owner, decrementing the allowance.",
+			},
+		},
+		States: []StateLayoutSpec{
+			{
+				Name: "mint",
+				Size: 100,
+				Fields: []StateFieldSpec{
+					{Name: "initialized", Offset: 1, Type: FieldBool},
+					{Name: "totalSupply", Offset: 8, Type: FieldU64},
+					{Name: "mintAuthority", Offset: 16, Type: FieldPubkey},
+					{Name: "decimals", Offset: 48, Type: FieldU8},
+					{Name: "name", Offset: 56, Type: FieldString, Len: 32},
+					{Name: "symbol", Offset: 88, Type: FieldString, Len: 10},
+				},
+			},
+			{
+				Name: "balance",
+				Size: 80,
+				Fields: []StateFieldSpec{
+					{Name: "initialized", Offset: 1, Type: FieldBool},
+					{Name: "amount", Offset: 8, Type: FieldU64},
+					{Name: "mint", Offset: 16, Type: FieldPubkey},
+					{Name: "owner", Offset: 48, Type: FieldPubkey},
+				},
+			},
+			{
+				Name: "allowance",
+				Size: 112,
+				Fields: []StateFieldSpec{
+					{Name: "initialized", Offset: 1, Type: FieldBool},
+					{Name: "amount", Offset: 8, Type: FieldU64},
+					{Name: "mint", Offset: 16, Type: FieldPubkey},
+					{Name: "owner", Offset: 48, Type: FieldPubkey},
+					{Name: "spender", Offset: 80, Type: FieldPubkey},
 				},
 			},
 		},

@@ -79,33 +79,85 @@ button.secondary {
   color: var(--muted);
 }
 
-.tabs {
+.toolbar {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.75rem 1.5rem 0;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.5rem;
   border-bottom: 1px solid var(--border);
-}
-
-.tab-button {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  color: var(--muted);
-  padding: 0.5rem 0.9rem;
-}
-
-.tab-button.active {
-  color: var(--text);
   background: var(--panel);
-  border-color: var(--border);
+}
+
+.toolbar-active {
+  margin-left: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.workspace {
+  display: flex;
+  align-items: flex-start;
+  min-height: calc(100vh - 7.5rem);
+}
+
+.file-tree {
+  width: 260px;
+  flex: 0 0 260px;
+  border-right: 1px solid var(--border);
+  padding: 0.75rem 0;
+  overflow-y: auto;
+  min-height: calc(100vh - 7.5rem);
+  font-size: 0.88rem;
+}
+
+.tree-node {
+  user-select: none;
+}
+
+.tree-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tree-label:hover {
+  background: rgba(124, 92, 255, 0.12);
+}
+
+.tree-label.active {
+  background: rgba(124, 92, 255, 0.22);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tree-caret {
+  width: 0.9rem;
+  display: inline-block;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.tree-icon {
+  width: 1.1rem;
+  text-align: center;
+}
+
+.tree-children {
+  overflow: hidden;
+}
+
+.tree-children.collapsed {
+  display: none;
 }
 
 main {
+  flex: 1;
+  min-width: 0;
   padding: 1.5rem;
-  max-width: 900px;
-  margin: 0 auto;
 }
 
 .panel {
@@ -233,6 +285,84 @@ main {
 
 .method-card button {
   margin-top: 0.25rem;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.build-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.build-list .hint {
+  display: block;
+  padding: 0.6rem 0.9rem;
+}
+
+.build-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.82rem;
+}
+
+.build-row:last-child {
+  border-bottom: none;
+}
+
+.build-row:hover {
+  background: rgba(124, 92, 255, 0.1);
+}
+
+.build-row.selected {
+  background: rgba(124, 92, 255, 0.2);
+  font-weight: 600;
+}
+
+.source-viewer {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.source-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.source-viewer-header button {
+  padding: 0.1rem 0.5rem;
+}
+
+.source-viewer pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  max-height: 32rem;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.25);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
 }
 
 .method-card pre {

@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>go-solana example deploys</title>
+  <title>gosbf IDE</title>
   <link rel="stylesheet" href="/style.css" />
   <script src="https://unpkg.com/@solana/web3.js@1/lib/index.iife.min.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <h1>go-solana example deploys</h1>
+    <h1>gosbf IDE</h1>
     <div class="wallet-controls">
       <select id="network-select">
         <option value="devnet" selected>Devnet</option>
@@ -21,9 +21,16 @@
     </div>
   </header>
 
-  <nav id="tabs" class="tabs"></nav>
+  <div class="toolbar">
+    <button id="toolbar-compile" title="Compile the selected example">🔨 Compile</button>
+    <button id="toolbar-deploy" title="Deploy the selected example">🚀 Deploy</button>
+    <span id="toolbar-active" class="toolbar-active">no file selected</span>
+  </div>
 
-  <main id="panels"></main>
+  <div class="workspace">
+    <aside id="file-tree" class="file-tree"></aside>
+    <main id="panels"></main>
+  </div>
 
   <script src="/app.js"></script>
 </body>

@@ -14,7 +14,7 @@ type Example struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
-	Sources     []string `json:"-"`
+	Sources     []string `json:"sources"`
 }
 
 // Examples is every guest program with a compiled Deploy tab. context and
@@ -65,6 +65,12 @@ var Examples = []Example{
 		Name:        "payable",
 		Description: "SOL vault: payable deposit (CPI), pull-payment withdraw, owner-only emergency withdraw.",
 		Sources:     []string{"examples/payable/testdata/accounts.go", "examples/payable/testdata/program.go"},
+	},
+	{
+		ID:          "erc20",
+		Name:        "erc20",
+		Description: "Solidity ERC-20 analogue: name/symbol/decimals/totalSupply, transfer/approve/transferFrom/allowance.",
+		Sources:     []string{"examples/erc20/testdata/accounts.go", "examples/erc20/testdata/program.go"},
 	},
 }
 

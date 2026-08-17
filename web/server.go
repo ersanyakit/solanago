@@ -48,12 +48,15 @@ func NewServer(cfg Config) *fiber.App {
 	api := app.Group("/api")
 	api.Get("/examples", listExamplesHandler())
 	api.Post("/examples/:id/build", buildExampleHandler(builder))
+	api.Get("/examples/:id/builds", buildHistoryHandler(builder))
 	api.Get("/examples/:id/artifact", artifactHandler(builder))
 	api.Post("/deploy/session", createSessionHandler(builder, sessions))
 	api.Post("/deploy/session/:id/create-buffer-tx", createBufferTxHandler(sessions))
 	api.Post("/deploy/session/:id/deploy-tx", deployTxHandler(sessions))
 	registerInteractRoutes(api)
 	registerPhonebookRoutes(api)
+	registerToken2022Routes(api)
+	api.Get("/source", sourceHandler(cfg.RepoRoot))
 
 	sub, err := staticFS()
 	if err != nil {
@@ -69,35 +72,48 @@ func listExamplesHandler() fiber.Handler {
 	}
 }
 
+// buildExampleHandler compiles example and always appends a new build to
+// its history — clicking Build repeatedly is expected, not an error, and
+// every click is independently selectable/deployable afterward (see
+// buildHistoryHandler and createSessionHandler's buildId).
 func buildExampleHandler(builder *Builder) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		example, ok := FindExample(c.Params("id"))
 		if !ok {
 			return c.Status(fiber.StatusNotFound).JSON(errorBody("unknown example id"))
 		}
-		artifact, err := builder.Build(example)
+		record, err := builder.Build(example)
 		if err != nil {
 			return c.Status(fiber.StatusUnprocessableEntity).JSON(errorBody(err.Error()))
 		}
-		return c.JSON(fiber.Map{
-			"sizeBytes": len(artifact.Bytes),
-			"sha256":    artifact.SHA256,
-		})
+		return c.JSON(record)
 	}
 }
 
+func buildHistoryHandler(builder *Builder) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		if _, ok := FindExample(c.Params("id")); !ok {
+			return c.Status(fiber.StatusNotFound).JSON(errorBody("unknown example id"))
+		}
+		return c.JSON(builder.History(c.Params("id")))
+	}
+}
+
+// artifactHandler serves one build's bytes — the one named by ?buildId, or
+// the most recent build if omitted. It never compiles on the caller's
+// behalf; a 404 here means POST .../build hasn't been called yet.
 func artifactHandler(builder *Builder) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		example, ok := FindExample(c.Params("id"))
 		if !ok {
 			return c.Status(fiber.StatusNotFound).JSON(errorBody("unknown example id"))
 		}
-		artifact, err := builder.Build(example)
+		artifact, err := builder.Artifact(example.ID, c.Query("buildId"))
 		if err != nil {
-			return c.Status(fiber.StatusUnprocessableEntity).JSON(errorBody(err.Error()))
+			return c.Status(fiber.StatusNotFound).JSON(errorBody("no matching build; call build first"))
 		}
 		c.Set(fiber.HeaderContentType, "application/octet-stream")
-		return c.Send(artifact.Bytes)
+		return c.Send(artifact)
 	}
 }
 
@@ -105,6 +121,9 @@ type createSessionRequest struct {
 	ExampleID string `json:"exampleId"`
 	FeePayer  string `json:"feePayer"`
 	RPCURL    string `json:"rpcUrl"`
+	// BuildID selects a specific prior build (from GET .../builds) to
+	// deploy. Empty means "build fresh now," matching the old behavior.
+	BuildID string `json:"buildId"`
 }
 
 func createSessionHandler(builder *Builder, sessions *sessionStore) fiber.Handler {
@@ -125,11 +144,24 @@ func createSessionHandler(builder *Builder, sessions *sessionStore) fiber.Handle
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(errorBody(err.Error()))
 		}
-		artifact, err := builder.Build(example)
-		if err != nil {
-			return c.Status(fiber.StatusUnprocessableEntity).JSON(errorBody(err.Error()))
+
+		var buildID string
+		var artifactLen int
+		if body.BuildID != "" {
+			artifact, err := builder.Artifact(example.ID, body.BuildID)
+			if err != nil {
+				return c.Status(fiber.StatusNotFound).JSON(errorBody("unknown buildId; build it again first"))
+			}
+			buildID, artifactLen = body.BuildID, len(artifact)
+		} else {
+			record, err := builder.Build(example)
+			if err != nil {
+				return c.Status(fiber.StatusUnprocessableEntity).JSON(errorBody(err.Error()))
+			}
+			buildID, artifactLen = record.ID, record.SizeBytes
 		}
-		session, err := sessions.create(example.ID, feePayer, rpcURL, len(artifact.Bytes), artifact.SourceSHA256)
+
+		session, err := sessions.create(example.ID, feePayer, rpcURL, artifactLen, buildID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(errorBody(err.Error()))
 		}
@@ -138,6 +170,7 @@ func createSessionHandler(builder *Builder, sessions *sessionStore) fiber.Handle
 			"programId": session.program.PublicKey.String(),
 			"bufferId":  session.buffer.PublicKey.String(),
 			"elfLength": session.elfLength,
+			"buildId":   session.buildID,
 		})
 	}
 }
