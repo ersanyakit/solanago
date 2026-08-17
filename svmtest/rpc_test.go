@@ -97,6 +97,84 @@ func TestSendInstructionsPreservesSignatureOnConfirmationTimeout(t *testing.T) {
 	}
 }
 
+func TestLatestBlockhashRetriesRateLimitedResponses(t *testing.T) {
+	restoreRetryTuning(t)
+	idempotentRetryBaseDelay = time.Millisecond
+	blockhash := deterministicSigner(30).PublicKey.String()
+	var attempts int
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		method, _ := decodeRPCRequest(t, request)
+		if method != "getLatestBlockhash" {
+			t.Fatalf("unexpected RPC method %q", method)
+		}
+		attempts++
+		if attempts < 3 {
+			http.Error(response, "rate limited", http.StatusTooManyRequests)
+			return
+		}
+		writeRPCResult(t, response, map[string]any{"value": map[string]any{"blockhash": blockhash}})
+	}))
+	defer server.Close()
+
+	got, err := (Client{URL: server.URL}).LatestBlockhash(context.Background())
+	if err != nil {
+		t.Fatalf("LatestBlockhash() error = %v, want nil after retrying past 429s", err)
+	}
+	if got != blockhash {
+		t.Fatalf("blockhash = %q, want %q", got, blockhash)
+	}
+	if attempts != 3 {
+		t.Fatalf("attempts = %d, want exactly 3 (two 429s then success)", attempts)
+	}
+}
+
+func TestLatestBlockhashDoesNotRetryNonRateLimitErrors(t *testing.T) {
+	restoreRetryTuning(t)
+	idempotentRetryBaseDelay = time.Millisecond
+	var attempts int
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		attempts++
+		http.Error(response, "bad request", http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	if _, err := (Client{URL: server.URL}).LatestBlockhash(context.Background()); err == nil {
+		t.Fatal("LatestBlockhash() error = nil, want the non-retryable HTTP 400 surfaced")
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want exactly 1 (a non-429/5xx error must not be retried)", attempts)
+	}
+}
+
+func TestLatestBlockhashGivesUpAfterMaxAttempts(t *testing.T) {
+	restoreRetryTuning(t)
+	idempotentRetryBaseDelay = time.Millisecond
+	idempotentRetryAttempts = 3
+	var attempts int
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		attempts++
+		http.Error(response, "rate limited", http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	if _, err := (Client{URL: server.URL}).LatestBlockhash(context.Background()); err == nil {
+		t.Fatal("LatestBlockhash() error = nil, want the persistent 429 surfaced once attempts are exhausted")
+	}
+	if attempts != 3 {
+		t.Fatalf("attempts = %d, want exactly idempotentRetryAttempts (3)", attempts)
+	}
+}
+
+// restoreRetryTuning lets a test shrink the retry backoff/attempt knobs
+// without leaking that override into other tests.
+func restoreRetryTuning(t *testing.T) {
+	t.Helper()
+	attempts, base, max := idempotentRetryAttempts, idempotentRetryBaseDelay, idempotentRetryMaxDelay
+	t.Cleanup(func() {
+		idempotentRetryAttempts, idempotentRetryBaseDelay, idempotentRetryMaxDelay = attempts, base, max
+	})
+}
+
 func decodeRPCRequest(t *testing.T, request *http.Request) (string, []json.RawMessage) {
 	t.Helper()
 	var payload struct {

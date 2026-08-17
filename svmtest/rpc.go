@@ -88,7 +88,7 @@ func (c Client) call(ctx context.Context, method string, params any, result any)
 		return err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("Solana RPC HTTP %s: %s", response.Status, string(body))
+		return &httpStatusError{code: response.StatusCode, message: fmt.Sprintf("Solana RPC HTTP %s: %s", response.Status, string(body))}
 	}
 	var envelope struct {
 		Result json.RawMessage `json:"result"`
@@ -109,10 +109,64 @@ func (c Client) call(ctx context.Context, method string, params any, result any)
 	return json.Unmarshal(envelope.Result, result)
 }
 
+// httpStatusError carries the HTTP status code alongside call's existing
+// message text, so callIdempotent can decide whether a failure is worth
+// retrying without reparsing an error string.
+type httpStatusError struct {
+	code    int
+	message string
+}
+
+func (e *httpStatusError) Error() string { return e.message }
+
+// idempotentRetryAttempts and idempotentRetryBaseDelay bound how hard a
+// read-only RPC call retries a rate-limited (429) or server-side (5xx)
+// failure before giving up. Public endpoints like Devnet's default RPC rate
+// limit aggressively under the burst of reads a deploy or interact flow
+// makes (rent queries, blockhash fetches, account reads); these calls have
+// no side effects, so retrying them is always safe, unlike sendTransaction
+// below, which this package deliberately never resends automatically.
+var (
+	idempotentRetryAttempts  = 5
+	idempotentRetryBaseDelay = 400 * time.Millisecond
+	idempotentRetryMaxDelay  = 5 * time.Second
+)
+
+// callIdempotent wraps call with bounded exponential-backoff retry for
+// HTTP 429/5xx responses only. It must never be used for a method that
+// submits or resends a transaction.
+func (c Client) callIdempotent(ctx context.Context, method string, params any, result any) error {
+	delay := idempotentRetryBaseDelay
+	var lastErr error
+	for attempt := 0; attempt < idempotentRetryAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+			delay *= 2
+			if delay > idempotentRetryMaxDelay {
+				delay = idempotentRetryMaxDelay
+			}
+		}
+		err := c.call(ctx, method, params, result)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		var statusErr *httpStatusError
+		if !errors.As(err, &statusErr) || (statusErr.code != http.StatusTooManyRequests && statusErr.code < 500) {
+			return err
+		}
+	}
+	return lastErr
+}
+
 // Health checks whether the validator RPC is ready.
 func (c Client) Health(ctx context.Context) error {
 	var result string
-	if err := c.call(ctx, "getHealth", []any{}, &result); err != nil {
+	if err := c.callIdempotent(ctx, "getHealth", []any{}, &result); err != nil {
 		return err
 	}
 	if result != "ok" {
@@ -124,14 +178,14 @@ func (c Client) Health(ctx context.Context) error {
 // GenesisHash identifies the connected cluster.
 func (c Client) GenesisHash(ctx context.Context) (string, error) {
 	var result string
-	err := c.call(ctx, "getGenesisHash", []any{}, &result)
+	err := c.callIdempotent(ctx, "getGenesisHash", []any{}, &result)
 	return result, err
 }
 
 // MinimumBalanceForRentExemption queries the runtime rent calculation.
 func (c Client) MinimumBalanceForRentExemption(ctx context.Context, size uint64) (uint64, error) {
 	var result uint64
-	err := c.call(ctx, "getMinimumBalanceForRentExemption", []any{size, map[string]any{"commitment": "finalized"}}, &result)
+	err := c.callIdempotent(ctx, "getMinimumBalanceForRentExemption", []any{size, map[string]any{"commitment": "finalized"}}, &result)
 	return result, err
 }
 
@@ -140,7 +194,7 @@ func (c Client) Balance(ctx context.Context, address sdk.Pubkey) (uint64, error)
 	var result struct {
 		Value uint64 `json:"value"`
 	}
-	err := c.call(ctx, "getBalance", []any{address.String(), map[string]any{"commitment": "finalized"}}, &result)
+	err := c.callIdempotent(ctx, "getBalance", []any{address.String(), map[string]any{"commitment": "finalized"}}, &result)
 	return result.Value, err
 }
 
@@ -150,7 +204,7 @@ func (c Client) GetAccountInfo(ctx context.Context, address sdk.Pubkey) (*Accoun
 	var result struct {
 		Value *AccountInfo `json:"value"`
 	}
-	err := c.call(ctx, "getAccountInfo", []any{address.String(), map[string]any{"commitment": "finalized", "encoding": "base64"}}, &result)
+	err := c.callIdempotent(ctx, "getAccountInfo", []any{address.String(), map[string]any{"commitment": "finalized", "encoding": "base64"}}, &result)
 	return result.Value, err
 }
 
@@ -168,6 +222,50 @@ func (c Client) RequestAirdrop(ctx context.Context, address sdk.Pubkey, lamports
 		return "", errors.New("requestAirdrop returned an empty signature")
 	}
 	return signature, c.WaitForFinalized(ctx, signature)
+}
+
+// LatestBlockhash returns the current finalized blockhash, for callers that
+// compile a transaction message themselves instead of going through
+// SendInstructions (e.g. a partially-signed transaction an external wallet
+// will finish signing).
+func (c Client) LatestBlockhash(ctx context.Context) (string, error) {
+	var latest struct {
+		Value struct {
+			Blockhash string `json:"blockhash"`
+		} `json:"value"`
+	}
+	if err := c.callIdempotent(ctx, "getLatestBlockhash", []any{map[string]any{"commitment": "finalized"}}, &latest); err != nil {
+		return "", err
+	}
+	return latest.Value.Blockhash, nil
+}
+
+// SendRawTransaction submits an already-serialized, already-signed
+// transaction exactly once and returns its signature. Unlike
+// SendInstructions, it does not wait for any commitment level; pair it with
+// WaitForFinalized. Callers that build their own transaction bytes (e.g. a
+// browser wallet's signed output relayed through this process) use this
+// instead of SendInstructions, which insists on building and signing the
+// transaction itself.
+func (c Client) SendRawTransaction(ctx context.Context, transaction []byte) (string, error) {
+	localSignature, err := TransactionSignature(transaction)
+	if err != nil {
+		return "", err
+	}
+	var rpcSignature string
+	if err := c.call(ctx, "sendTransaction", []any{
+		EncodeTransactionBase64(transaction),
+		map[string]any{"encoding": "base64", "preflightCommitment": "confirmed", "skipPreflight": false},
+	}, &rpcSignature); err != nil {
+		return localSignature, fmt.Errorf("submit outcome unknown for transaction %s; transaction was not resent: %w", localSignature, err)
+	}
+	if rpcSignature == "" {
+		return localSignature, fmt.Errorf("sendTransaction returned an empty signature; local transaction signature is %s", localSignature)
+	}
+	if rpcSignature != localSignature {
+		return localSignature, fmt.Errorf("sendTransaction signature mismatch: RPC returned %s, local transaction signature is %s", rpcSignature, localSignature)
+	}
+	return localSignature, nil
 }
 
 // SendInstructions signs and submits exactly once, then polls the signature
@@ -191,7 +289,7 @@ func (c Client) sendInstructionsUntil(ctx context.Context, feePayer Signer, sign
 			Blockhash string `json:"blockhash"`
 		} `json:"value"`
 	}
-	if err := c.call(ctx, "getLatestBlockhash", []any{map[string]any{"commitment": "finalized"}}, &latest); err != nil {
+	if err := c.callIdempotent(ctx, "getLatestBlockhash", []any{map[string]any{"commitment": "finalized"}}, &latest); err != nil {
 		return "", err
 	}
 	transaction, err := BuildVersionedTransaction(feePayer, signers, latest.Value.Blockhash, instructions)

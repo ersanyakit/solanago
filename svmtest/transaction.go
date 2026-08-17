@@ -73,7 +73,10 @@ func ValidateSigner(signer Signer) error {
 // The fee payer is always the first writable signer. Privileges requested by
 // duplicate metas are unioned before canonical account ordering.
 func BuildLegacyTransaction(feePayer Signer, signers []Signer, recentBlockhash string, instructions []sdk.Instruction) ([]byte, error) {
-	message, accountKeys, numRequiredSignatures, err := buildCanonicalTransactionPayload(feePayer, recentBlockhash, instructions, false)
+	if err := ValidateSigner(feePayer); err != nil {
+		return nil, fmt.Errorf("%w: invalid fee payer keypair: %w", ErrMissingSigner, err)
+	}
+	message, accountKeys, numRequiredSignatures, err := buildCanonicalTransactionPayload(feePayer.PublicKey, recentBlockhash, instructions, false)
 	if err != nil {
 		return nil, err
 	}
@@ -84,20 +87,51 @@ func BuildLegacyTransaction(feePayer Signer, signers []Signer, recentBlockhash s
 // Address table lookups are intentionally empty; all accounts are included in the
 // static account set, which is suitable for deterministic harness submissions.
 func BuildVersionedTransaction(feePayer Signer, signers []Signer, recentBlockhash string, instructions []sdk.Instruction) ([]byte, error) {
-	message, accountKeys, numRequiredSignatures, err := buildCanonicalTransactionPayload(feePayer, recentBlockhash, instructions, true)
+	if err := ValidateSigner(feePayer); err != nil {
+		return nil, fmt.Errorf("%w: invalid fee payer keypair: %w", ErrMissingSigner, err)
+	}
+	message, accountKeys, numRequiredSignatures, err := buildCanonicalTransactionPayload(feePayer.PublicKey, recentBlockhash, instructions, true)
 	if err != nil {
 		return nil, err
 	}
 	return signTransaction(message, accountKeys, numRequiredSignatures, feePayer, signers)
 }
 
-func buildCanonicalTransactionPayload(feePayer Signer, recentBlockhash string, instructions []sdk.Instruction, versioned bool) ([]byte, []sdk.Pubkey, int, error) {
+// CompileTransactionMessage compiles a canonical transaction message for a
+// fee payer identified only by its public key — e.g. a browser wallet whose
+// private key this process never holds. It performs no signing; pair it
+// with PartialSignTransaction to produce wire bytes an external wallet can
+// complete.
+func CompileTransactionMessage(feePayer sdk.Pubkey, recentBlockhash string, instructions []sdk.Instruction, versioned bool) (message []byte, accountKeys []sdk.Pubkey, numRequiredSignatures int, err error) {
+	return buildCanonicalTransactionPayload(feePayer, recentBlockhash, instructions, versioned)
+}
+
+// PartialSignTransaction serializes message with one 64-byte signature slot
+// per numRequiredSignatures accountKeys entry, filling in a real signature
+// for any entry matching a supplied signer's public key and leaving every
+// other slot zero-filled. That mixed layout is the wire format a wallet's
+// signTransaction/signAllTransactions parses as "already signed by these
+// keys, still needs mine."
+func PartialSignTransaction(message []byte, accountKeys []sdk.Pubkey, numRequiredSignatures int, signers []Signer) []byte {
+	available := make(map[sdk.Pubkey]ed25519.PrivateKey, len(signers))
+	for _, signer := range signers {
+		available[signer.PublicKey] = signer.Private
+	}
+	transaction := appendShortVec(nil, numRequiredSignatures)
+	for _, key := range accountKeys[:numRequiredSignatures] {
+		if private, ok := available[key]; ok {
+			transaction = append(transaction, ed25519.Sign(private, message)...)
+			continue
+		}
+		transaction = append(transaction, make([]byte, ed25519.SignatureSize)...)
+	}
+	return append(transaction, message...)
+}
+
+func buildCanonicalTransactionPayload(feePayer sdk.Pubkey, recentBlockhash string, instructions []sdk.Instruction, versioned bool) ([]byte, []sdk.Pubkey, int, error) {
 	blockhash, err := sdk.ParsePubkey(recentBlockhash)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("%w: %v", ErrInvalidBlockhash, err)
-	}
-	if err := ValidateSigner(feePayer); err != nil {
-		return nil, nil, 0, fmt.Errorf("%w: invalid fee payer keypair: %w", ErrMissingSigner, err)
 	}
 
 	type privileges struct {
@@ -105,7 +139,7 @@ func buildCanonicalTransactionPayload(feePayer Signer, recentBlockhash string, i
 		order            int
 	}
 	privs := map[sdk.Pubkey]privileges{
-		feePayer.PublicKey: {signer: true, writable: true, order: 0},
+		feePayer: {signer: true, writable: true, order: 0},
 	}
 	nextOrder := 1
 	merge := func(key sdk.Pubkey, signer, writable bool) {
@@ -126,7 +160,7 @@ func buildCanonicalTransactionPayload(feePayer Signer, recentBlockhash string, i
 	}
 
 	keys := make([]sdk.Pubkey, 0, len(privs))
-	keys = append(keys, feePayer.PublicKey)
+	keys = append(keys, feePayer)
 	// Preserve encounter order inside each privilege class.
 	for class := 0; class < 4; class++ {
 		for order := 1; order < nextOrder; order++ {

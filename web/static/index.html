@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>go-solana example deploys</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://unpkg.com/@solana/web3.js@1/lib/index.iife.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>go-solana example deploys</h1>
+    <div class="wallet-controls">
+      <select id="network-select">
+        <option value="devnet" selected>Devnet</option>
+        <option value="custom">Custom RPC (e.g. localnet)</option>
+      </select>
+      <input id="custom-rpc" type="text" placeholder="http://127.0.0.1:8899" hidden />
+      <button id="connect-button">Connect Phantom</button>
+      <span id="wallet-address" class="wallet-address"></span>
+    </div>
+  </header>
+
+  <nav id="tabs" class="tabs"></nav>
+
+  <main id="panels"></main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

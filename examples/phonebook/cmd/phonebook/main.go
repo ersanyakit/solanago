@@ -1,8 +1,8 @@
 package main
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"flag"
@@ -23,9 +23,9 @@ import (
 const (
 	phonebookConfigDataLen = uint64(74)
 	phonebookDataLen       = uint64(1315)
-	maxNameLen            = 32
-	maxContacts           = 20
-	defaultFeeLamports    = uint64(100000)
+	maxNameLen             = 32
+	maxContacts            = 20
+	defaultFeeLamports     = uint64(100000)
 )
 
 type runtimeConfig struct {
@@ -173,7 +173,13 @@ func runInitConfig(ctx context.Context, client svmtest.Client, cfg runtimeConfig
 	txInstruction := sdk.Instruction{
 		ProgramID: cfg.program,
 		Accounts: []sdk.AccountMeta{
-			sdk.Writable(configSigner.PublicKey, true),
+			// configSigner was already created (and already signed that
+			// System::CreateAccount) by ensureProgramOwnedAccount above;
+			// ProcessInitConfig itself only requires adminAccount to sign
+			// (see testdata/program.go), so marking configSigner a signer
+			// here again asked signTransaction for a private key this
+			// command never loads, and always failed with ErrMissingSigner.
+			sdk.Writable(configSigner.PublicKey, false),
 			sdk.Writable(admin.PublicKey, true),
 			sdk.Readonly(treasury, false),
 		},
@@ -236,7 +242,10 @@ func runInitPhonebook(ctx context.Context, client svmtest.Client, cfg runtimeCon
 	instruction := sdk.Instruction{
 		ProgramID: runtimeProgram(cfg),
 		Accounts: []sdk.AccountMeta{
-			sdk.Writable(phonebookSigner.PublicKey, true),
+			// Same fix as init-config: phonebookSigner already signed its
+			// own creation above; the tag-2 handler only requires
+			// ownerAccount to sign.
+			sdk.Writable(phonebookSigner.PublicKey, false),
 			sdk.Writable(owner.PublicKey, true),
 		},
 		Data: []byte{2},
@@ -370,10 +379,15 @@ func runAddContact(ctx context.Context, client svmtest.Client, cfg runtimeConfig
 	txInstruction := sdk.Instruction{
 		ProgramID: cfg.program,
 		Accounts: []sdk.AccountMeta{
-			sdk.Writable(phonebookAddress, true),
+			// ProcessAddContact (testdata/program.go tag 3) only requires
+			// ownerAccount to sign; phonebookAddress and the treasury are
+			// pre-existing accounts this command never holds a keypair
+			// for, so marking them signers here always failed with
+			// ErrMissingSigner before a transaction could even be built.
+			sdk.Writable(phonebookAddress, false),
 			sdk.Writable(owner.PublicKey, true),
 			sdk.Readonly(configAddress, false),
-			sdk.Writable(config.Treasury, true),
+			sdk.Writable(config.Treasury, false),
 			sdk.Readonly(system.ProgramID, false),
 		},
 		Data: instructionData,
@@ -459,7 +473,9 @@ func runWithdraw(ctx context.Context, client svmtest.Client, cfg runtimeConfig, 
 		Accounts: []sdk.AccountMeta{
 			sdk.Readonly(configAddress, false),
 			sdk.Writable(admin.PublicKey, true),
-			sdk.Writable(destination, true),
+			// ProcessWithdraw only requires adminAccount to sign;
+			// destination need not, and this command never holds its key.
+			sdk.Writable(destination, false),
 			sdk.Readonly(system.ProgramID, false),
 		},
 		Data: instructionData,
